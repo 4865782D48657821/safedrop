@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nix Dev Environment"
+  short_description: "Create, repair, extend, and review Nix Flakes"
+  default_prompt: "Use $setup-nix-dev-environment to inspect the current repository and set up or improve its Nix Flake development environment."
