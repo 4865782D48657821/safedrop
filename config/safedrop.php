@@ -49,6 +49,35 @@ return [
         'needs_review',
     ],
 
+    'mvp_external_target_types' => [
+        'project_page',
+    ],
+
+    'url_review' => [
+        'allowed_schemes' => ['http', 'https'],
+        'blocked_hosts' => [
+            'localhost',
+        ],
+        'blocked_suffixes' => [
+            '.localhost',
+            '.local',
+            '.internal',
+        ],
+        'shortener_domains' => [
+            'bit.ly',
+            'buff.ly',
+            'cutt.ly',
+            'goo.gl',
+            'is.gd',
+            'linktr.ee',
+            'ow.ly',
+            'rebrand.ly',
+            'shorturl.at',
+            'tinyurl.com',
+            't.co',
+        ],
+    ],
+
     'seed_projects' => [
         [
             'slug' => 'skyforge-build-tools',

@@ -74,14 +74,24 @@ class ProjectDataModelTest extends TestCase
             'original_url' => 'https://example.com/project',
             'normalized_url' => 'https://example.com/project',
         ]);
+        $uppercaseSchemeTarget = new ExternalTarget([
+            'original_url' => 'HTTPS://example.com/project',
+        ]);
 
         $unsafeTarget = new ExternalTarget([
             'original_url' => 'javascript:alert(1)',
             'normalized_url' => 'javascript:alert(1)',
         ]);
+        $privateTarget = new ExternalTarget([
+            'original_url' => 'https://127.0.0.1/project',
+            'normalized_url' => 'https://127.0.0.1/project',
+            'target_type' => 'project_page',
+        ]);
 
         $this->assertSame('https://example.com/project', $httpsTarget->safeDestinationUrl());
+        $this->assertSame('HTTPS://example.com/project', $uppercaseSchemeTarget->safeDestinationUrl());
         $this->assertNull($unsafeTarget->safeDestinationUrl());
+        $this->assertNull($privateTarget->safeDestinationUrl());
     }
 
     public function test_approved_external_targets_are_limited_to_project_pages(): void
