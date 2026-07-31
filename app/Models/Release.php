@@ -20,6 +20,7 @@ class Release extends Model
     protected function casts(): array
     {
         return [
+            'compatibility' => 'array',
             'published_at' => 'datetime',
         ];
     }
@@ -32,5 +33,13 @@ class Release extends Model
     public function externalTargets(): HasMany
     {
         return $this->hasMany(ExternalTarget::class);
+    }
+
+    public function approvedExternalTargets(): HasMany
+    {
+        return $this->externalTargets()
+            ->where('trust_status', 'approved')
+            ->where('reachability_status', 'reachable')
+            ->where('target_type', 'project_page');
     }
 }

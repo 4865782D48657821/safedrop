@@ -31,4 +31,16 @@ class ExternalTarget extends Model
     {
         return $this->belongsTo(Release::class);
     }
+
+    public function safeDestinationUrl(): ?string
+    {
+        $url = $this->normalized_url ?: $this->original_url;
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return null;
+        }
+
+        return $url;
+    }
 }

@@ -27,14 +27,14 @@
         <div class="grid">
             @foreach ($projects as $project)
                 <article class="card">
-                    <h3>{{ $project['title'] }}</h3>
-                    <p>{{ $project['summary'] }}</p>
+                    <h3>{{ $project->title }}</h3>
+                    <p>{{ $project->summary }}</p>
                     <div class="meta">
-                        <span class="pill">{{ $project['game'] }}</span>
-                        <span class="pill">{{ $project['type'] }}</span>
-                        <span class="pill">{{ $project['trust_status'] }}</span>
+                        <span class="pill">{{ ucfirst($project->game) }}</span>
+                        <span class="pill">{{ str_replace('_', ' ', $project->project_type) }}</span>
+                        <span class="pill">{{ $project->latestPublicRelease?->approvedExternalTargets->first()?->trust_status ?? 'needs review' }}</span>
                     </div>
-                    <a class="button" href="{{ route('projects.show', $project['slug']) }}">View project</a>
+                    <a class="button" href="{{ route('projects.show', $project->slug) }}">View project</a>
                 </article>
             @endforeach
         </div>

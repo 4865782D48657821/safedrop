@@ -9,7 +9,7 @@
     </section>
 
     <section class="notice">
-        <p>You are about to leave Safedrop for <strong>{{ $targetHost }}</strong>.</p>
-        <a class="button" href="{{ $project['external_url'] }}" rel="nofollow noopener noreferrer">Open external site</a>
+        <p>You are about to leave Safedrop for <strong>{{ $target->target_domain }}</strong>.</p>
+        <a class="button" href="{{ $target->safeDestinationUrl() }}" rel="nofollow noopener noreferrer">Open external site</a>
     </section>
 @endsection

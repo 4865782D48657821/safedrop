@@ -4,12 +4,16 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
+use App\Models\Project;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
 
 Route::get('/', function () {
     $games = config('safedrop.games');
-    $projects = config('safedrop.seed_projects');
+    $projects = Project::query()
+        ->publiclyVisible()
+        ->with(['creator', 'latestPublicRelease.approvedExternalTargets'])
+        ->latest('updated_at')
+        ->get();
 
     return view('home', [
         'games' => $games,
@@ -18,25 +22,36 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/projects/{slug}', function (string $slug) {
-    $project = collect(config('safedrop.seed_projects'))->firstWhere('slug', $slug);
+    $project = Project::query()
+        ->publiclyVisible()
+        ->with(['creator', 'latestPublicRelease.approvedExternalTargets'])
+        ->where('slug', $slug)
+        ->firstOrFail();
 
-    abort_unless($project, 404);
+    $target = $project->latestPublicRelease?->approvedExternalTargets
+        ->first(fn ($target): bool => $target->safeDestinationUrl() !== null);
 
     return view('project', [
         'project' => $project,
-        'targetHost' => parse_url($project['external_url'], PHP_URL_HOST),
+        'target' => $target,
     ]);
 })->name('projects.show');
 
 Route::get('/go/{slug}', function (string $slug) {
-    $project = collect(config('safedrop.seed_projects'))->firstWhere('slug', $slug);
+    $project = Project::query()
+        ->publiclyVisible()
+        ->with(['latestPublicRelease.approvedExternalTargets'])
+        ->where('slug', $slug)
+        ->firstOrFail();
 
-    abort_unless($project, 404);
-    abort_if($project['trust_status'] !== 'approved', 403);
+    $target = $project->latestPublicRelease?->approvedExternalTargets
+        ->first(fn ($target): bool => $target->safeDestinationUrl() !== null);
+
+    abort_unless($target, 403);
 
     return view('redirect', [
         'project' => $project,
-        'targetHost' => Str::of(parse_url($project['external_url'], PHP_URL_HOST))->lower(),
+        'target' => $target,
     ]);
 })->name('redirect.preview');
 
