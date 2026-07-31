@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AgeGroup;
 use App\Enums\UserRole;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -30,6 +31,11 @@ class User extends Authenticatable
     public function isCreator(): bool
     {
         return $this->role->isCreator();
+    }
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class, 'creator_id');
     }
 
     public function canPublishProjects(): bool

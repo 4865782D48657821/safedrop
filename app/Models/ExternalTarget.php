@@ -68,6 +68,10 @@ class ExternalTarget extends Model
             return null;
         }
 
+        if ($review->signals !== []) {
+            return null;
+        }
+
         if ($review->targetDomain !== $this->targetDomain()) {
             return null;
         }

@@ -157,6 +157,21 @@ class ProjectDataModelTest extends TestCase
         }
     }
 
+    public function test_external_target_public_destination_requires_signal_free_current_review(): void
+    {
+        $target = new ExternalTarget([
+            'original_url' => 'http://example.com/project',
+            'normalized_url' => 'http://example.com/project',
+            'target_domain' => 'example.com',
+            'domain_status' => DomainStatus::Known,
+            'target_type' => 'project_page',
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+
+        $this->assertNull($target->publicDestinationUrl());
+    }
+
     public function test_configured_domain_statuses_are_castable(): void
     {
         foreach (config('safedrop.domain_statuses') as $status) {

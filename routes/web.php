@@ -118,4 +118,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/moderation', [ModerationController::class, 'index'])->name('moderation.index');
     Route::post('/moderation/cases/{case}/decisions', [ModerationController::class, 'decide'])->name('moderation.decide');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('/creator/projects/create', [CreatorDashboardController::class, 'create'])->name('creator.projects.create');
+    Route::post('/creator/projects', [CreatorDashboardController::class, 'store'])->name('creator.projects.store');
 });
