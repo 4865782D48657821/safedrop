@@ -8,6 +8,7 @@ use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
 use App\Models\Project;
+use App\Services\TrustSafetyPolicy;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,12 +32,14 @@ Route::get('/projects/{slug}', function (string $slug) {
         ->where('slug', $slug)
         ->firstOrFail();
 
+    $policy = app(TrustSafetyPolicy::class);
     $target = $project->latestPublicRelease?->publicExternalTargets
-        ->first(fn ($target): bool => $target->publicDestinationUrl() !== null);
+        ->first(fn ($target): bool => $policy->canRedirectToTarget($target));
 
     return view('project', [
         'project' => $project,
         'target' => $target,
+        'adsAllowed' => $policy->canShowRevenueAdsOnProject($project),
     ]);
 })->name('projects.show');
 
@@ -56,8 +59,9 @@ Route::get('/go/{slug}', function (string $slug) {
         ->where('slug', $slug)
         ->firstOrFail();
 
+    $policy = app(TrustSafetyPolicy::class);
     $target = $project->latestPublicRelease?->publicExternalTargets
-        ->first(fn ($target): bool => $target->publicDestinationUrl() !== null);
+        ->first(fn ($target): bool => $policy->canRedirectToTarget($target));
 
     abort_unless($target, 403);
 

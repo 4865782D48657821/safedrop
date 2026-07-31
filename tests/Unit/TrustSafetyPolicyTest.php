@@ -1,0 +1,130 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Enums\AgeGroup;
+use App\Enums\DomainStatus;
+use App\Enums\UserRole;
+use App\Models\ExternalTarget;
+use App\Models\Project;
+use App\Models\Release;
+use App\Models\User;
+use App\Services\TrustSafetyPolicy;
+use Tests\TestCase;
+
+class TrustSafetyPolicyTest extends TestCase
+{
+    public function test_only_published_and_approved_projects_are_discoverable(): void
+    {
+        $policy = app(TrustSafetyPolicy::class);
+
+        $this->assertTrue($policy->canDiscoverProject(new Project([
+            'publication_status' => 'published',
+            'moderation_status' => 'approved',
+        ])));
+        $this->assertFalse($policy->canDiscoverProject(new Project([
+            'publication_status' => 'draft',
+            'moderation_status' => 'approved',
+        ])));
+        $this->assertFalse($policy->canDiscoverProject(new Project([
+            'publication_status' => 'published',
+            'moderation_status' => 'rejected',
+        ])));
+    }
+
+    public function test_only_published_and_approved_releases_are_exposable(): void
+    {
+        $policy = app(TrustSafetyPolicy::class);
+
+        $this->assertTrue($policy->canExposeRelease(new Release([
+            'published_at' => now(),
+            'moderation_status' => 'approved',
+        ])));
+        $this->assertFalse($policy->canExposeRelease(new Release([
+            'published_at' => null,
+            'moderation_status' => 'approved',
+        ])));
+        $this->assertFalse($policy->canExposeRelease(new Release([
+            'published_at' => now(),
+            'moderation_status' => 'pending',
+        ])));
+    }
+
+    public function test_redirect_policy_blocks_unsafe_or_untrusted_targets(): void
+    {
+        $policy = app(TrustSafetyPolicy::class);
+
+        $approved = $this->target([
+            'normalized_url' => 'https://modrinth.com/plugin/example',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $blockedDomain = $this->target([
+            'normalized_url' => 'https://modrinth.com/plugin/example',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Blocked,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $unsafeUrl = $this->target([
+            'normalized_url' => 'https://127.0.0.1/project',
+            'target_domain' => '127.0.0.1',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+
+        $this->assertTrue($policy->canRedirectToTarget($approved));
+        $this->assertFalse($policy->canRedirectToTarget($blockedDomain));
+        $this->assertFalse($policy->canRedirectToTarget($unsafeUrl));
+    }
+
+    public function test_revenue_ads_require_verified_adult_creator_and_non_junior_age_rating(): void
+    {
+        $policy = app(TrustSafetyPolicy::class);
+
+        $juniorCreator = $this->user(UserRole::JuniorCreator, AgeGroup::Junior);
+        $verifiedCreator = $this->user(UserRole::AdultCreatorVerified, AgeGroup::AdultVerified, now());
+
+        $juniorProject = $this->project($juniorCreator, '12+');
+        $adultProject = $this->project($verifiedCreator, '18+');
+        $adultJuniorRatedProject = $this->project($verifiedCreator, '12+');
+        $unapprovedProject = $this->project($verifiedCreator, '18+', moderationStatus: 'pending');
+
+        $this->assertFalse($policy->canShowRevenueAdsOnProject($juniorProject));
+        $this->assertTrue($policy->canShowRevenueAdsOnProject($adultProject));
+        $this->assertFalse($policy->canShowRevenueAdsOnProject($adultJuniorRatedProject));
+        $this->assertFalse($policy->canShowRevenueAdsOnProject($unapprovedProject));
+    }
+
+    private function target(array $attributes): ExternalTarget
+    {
+        return new ExternalTarget(array_merge([
+            'original_url' => $attributes['normalized_url'] ?? 'https://example.com/project',
+            'target_type' => 'project_page',
+        ], $attributes));
+    }
+
+    private function user(UserRole $role, AgeGroup $ageGroup, mixed $verifiedAt = null): User
+    {
+        return (new User)->forceFill([
+            'role' => $role,
+            'age_group' => $ageGroup,
+            'creator_verified_at' => $verifiedAt,
+        ]);
+    }
+
+    private function project(User $creator, string $ageRating, string $moderationStatus = 'approved'): Project
+    {
+        $project = new Project([
+            'publication_status' => 'published',
+            'moderation_status' => $moderationStatus,
+            'age_rating' => $ageRating,
+        ]);
+        $project->setRelation('creator', $creator);
+
+        return $project;
+    }
+}

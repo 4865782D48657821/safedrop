@@ -29,6 +29,10 @@
             @endif
         </article>
         <article class="card">
+            <h2>Revenue Safety</h2>
+            <p>{{ $adsAllowed ? 'Revenue ads are eligible after campaign review.' : 'Revenue ads are disabled for this project.' }}</p>
+        </article>
+        <article class="card">
             <h2>Tags</h2>
             <div class="meta">
                 @foreach ($project->tags ?? [] as $tag)

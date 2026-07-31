@@ -54,7 +54,7 @@ class Project extends Model
     public function scopePubliclyVisible($query)
     {
         return $query
-            ->where('publication_status', 'published')
-            ->where('moderation_status', 'approved');
+            ->whereIn('publication_status', config('safedrop.public_project_statuses.publication'))
+            ->whereIn('moderation_status', config('safedrop.public_project_statuses.moderation'));
     }
 }

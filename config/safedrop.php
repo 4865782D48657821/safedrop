@@ -63,6 +63,20 @@ return [
         DomainStatus::Known->value,
     ],
 
+    'public_project_statuses' => [
+        'publication' => ['published'],
+        'moderation' => ['approved'],
+    ],
+
+    'public_release_statuses' => [
+        'moderation' => ['approved'],
+    ],
+
+    'ad_free_age_ratings' => [
+        '12+',
+        'under_13',
+    ],
+
     'moderation_actions' => [
         'approve',
         'needs_review',

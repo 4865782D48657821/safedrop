@@ -39,6 +39,7 @@ class DiscoveryPageTest extends TestCase
         $response->assertSee('Safety Status');
         $response->assertSee('Domain status');
         $response->assertSee('modrinth.com');
+        $response->assertSee('Revenue ads are disabled for this project.');
     }
 
     public function test_unapproved_projects_are_not_publicly_visible(): void
