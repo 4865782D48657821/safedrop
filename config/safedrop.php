@@ -77,6 +77,22 @@ return [
         'rights_case',
     ],
 
+    'report_reasons' => [
+        'unsafe_link',
+        'inappropriate_content',
+        'misleading_metadata',
+        'spam_or_abuse',
+        'other',
+    ],
+
+    'rights_claim_types' => [
+        'copyright',
+        'trademark',
+        'ownership_dispute',
+        'impersonation',
+        'other',
+    ],
+
     'mvp_external_target_types' => [
         'project_page',
     ],

@@ -75,6 +75,8 @@ class ModerationCase extends Model
         $subject = $this->subject;
 
         return match (true) {
+            $subject instanceof ContentReport => "Report: {$subject->project?->title}",
+            $subject instanceof RightsCase => "Rights case: {$subject->claim_type}",
             $subject instanceof Project => "Project: {$subject->title}",
             $subject instanceof Release => "Release: {$subject->project?->title} {$subject->version}",
             $subject instanceof ExternalTarget => "External target: {$subject->target_domain}",

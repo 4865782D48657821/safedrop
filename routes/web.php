@@ -5,6 +5,8 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ProjectReportController;
+use App\Http\Controllers\RightsCaseController;
 use App\Models\Project;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +39,15 @@ Route::get('/projects/{slug}', function (string $slug) {
         'target' => $target,
     ]);
 })->name('projects.show');
+
+Route::post('/projects/{slug}/reports', [ProjectReportController::class, 'store'])
+    ->middleware('throttle:reports')
+    ->name('projects.reports.store');
+
+Route::get('/rights', [RightsCaseController::class, 'create'])->name('rights.create');
+Route::post('/rights', [RightsCaseController::class, 'store'])
+    ->middleware('throttle:reports')
+    ->name('rights.store');
 
 Route::get('/go/{slug}', function (string $slug) {
     $project = Project::query()

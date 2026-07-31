@@ -155,12 +155,17 @@
             font-weight: 700;
         }
 
-        input {
+        input, select, textarea {
             min-height: 42px;
             padding: 9px 11px;
             border: 1px solid var(--line);
             border-radius: 6px;
             font: inherit;
+        }
+
+        textarea {
+            min-height: 128px;
+            resize: vertical;
         }
 
         button.button {
@@ -192,6 +197,7 @@
         <nav aria-label="Primary">
             <a href="{{ route('home') }}">Discovery</a>
             <a href="{{ route('home') }}#projects">Projects</a>
+            <a href="{{ route('rights.create') }}">Rights</a>
             @auth
                 <a href="{{ route('account.show') }}">Account</a>
                 @if (auth()->user()->canPublishProjects())

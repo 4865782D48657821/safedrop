@@ -1,6 +1,10 @@
 @extends('layouts.app', ['title' => $project->title.' | Safedrop'])
 
 @section('content')
+    @if (session('status'))
+        <section class="notice">{{ session('status') }}</section>
+    @endif
+
     <section class="hero">
         <h1>{{ $project->title }}</h1>
         <p class="lede">{{ $project->summary }}</p>
@@ -31,6 +35,43 @@
                     <span class="pill">{{ $tag }}</span>
                 @endforeach
             </div>
+        </article>
+        <article class="card">
+            <h2>Report Project</h2>
+            <form class="form" method="post" action="{{ route('projects.reports.store', $project->slug) }}">
+                @csrf
+                <label>
+                    Reason
+                    <select name="reason" required>
+                        @foreach (config('safedrop.report_reasons') as $reason)
+                            <option value="{{ $reason }}" @selected(old('reason') === $reason)>{{ str_replace('_', ' ', $reason) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                @error('reason')
+                    <p class="error">{{ $message }}</p>
+                @enderror
+
+                @guest
+                    <label>
+                        Email
+                        <input name="reporter_email" type="email" value="{{ old('reporter_email') }}" autocomplete="email" maxlength="255">
+                    </label>
+                    @error('reporter_email')
+                        <p class="error">{{ $message }}</p>
+                    @enderror
+                @endguest
+
+                <label>
+                    Details
+                    <textarea name="details" required minlength="10" maxlength="2000">{{ old('details') }}</textarea>
+                </label>
+                @error('details')
+                    <p class="error">{{ $message }}</p>
+                @enderror
+
+                <button class="button" type="submit">Submit report</button>
+            </form>
         </article>
     </section>
 @endsection

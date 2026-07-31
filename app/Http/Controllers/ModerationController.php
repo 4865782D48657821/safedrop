@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DomainStatus;
+use App\Models\ContentReport;
 use App\Models\ExternalTarget;
 use App\Models\ModerationCase;
 use App\Models\Project;
 use App\Models\Release;
+use App\Models\RightsCase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,6 +87,8 @@ class ModerationController extends Controller
     private function applyDecision(object $subject, string $action): void
     {
         match (true) {
+            $subject instanceof ContentReport => $this->applyReportDecision($subject, $action),
+            $subject instanceof RightsCase => $this->applyRightsCaseDecision($subject, $action),
             $subject instanceof Project => $this->applyProjectDecision($subject, $action),
             $subject instanceof Release => $this->applyReleaseDecision($subject, $action),
             $subject instanceof ExternalTarget => $this->applyExternalTargetDecision($subject, $action),
@@ -108,6 +112,28 @@ class ModerationController extends Controller
     {
         $release->forceFill([
             'moderation_status' => $this->contentStatusFor($action),
+        ])->save();
+    }
+
+    private function applyReportDecision(ContentReport $report, string $action): void
+    {
+        $report->forceFill([
+            'status' => match ($action) {
+                'approve' => 'actioned',
+                'block' => 'dismissed',
+                default => 'open',
+            },
+        ])->save();
+    }
+
+    private function applyRightsCaseDecision(RightsCase $case, string $action): void
+    {
+        $case->forceFill([
+            'status' => match ($action) {
+                'approve' => 'actioned',
+                'block' => 'rejected',
+                default => 'open',
+            },
         ])->save();
     }
 
@@ -141,6 +167,17 @@ class ModerationController extends Controller
     private function statusSnapshot(?object $subject): array
     {
         return match (true) {
+            $subject instanceof ContentReport => [
+                'project_id' => $subject->project_id,
+                'project_snapshot' => $subject->project_snapshot,
+                'reason' => $subject->reason,
+                'status' => $subject->status,
+            ],
+            $subject instanceof RightsCase => [
+                'project_id' => $subject->project_id,
+                'claim_type' => $subject->claim_type,
+                'status' => $subject->status,
+            ],
             $subject instanceof Project => [
                 'publication_status' => $subject->publication_status,
                 'moderation_status' => $subject->moderation_status,
