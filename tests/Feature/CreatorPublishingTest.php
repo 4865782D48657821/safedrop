@@ -12,6 +12,7 @@ use App\Models\Release;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class CreatorPublishingTest extends TestCase
@@ -88,8 +89,10 @@ class CreatorPublishingTest extends TestCase
             ->get(route('moderation.index'))
             ->assertOk()
             ->assertSee('Project: Sky Forge Toolkit')
+            ->assertSee('A concise publishing test project for moderated external destinations.')
             ->assertSee('Release: Sky Forge Toolkit 1.0.0')
-            ->assertSee('External target: modrinth.com');
+            ->assertSee('External target: modrinth.com')
+            ->assertSee('https://modrinth.com/plugin/example');
     }
 
     public function test_project_submission_requires_creator_role(): void
@@ -190,6 +193,50 @@ class CreatorPublishingTest extends TestCase
         ])->assertRedirect(route('creator.dashboard'));
 
         $this->assertDatabaseHas('projects', ['slug' => 'sky-forge-toolkit-2']);
+    }
+
+    public function test_approved_creator_submission_becomes_discoverable_with_redirect(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $creator = $this->creator();
+        $this->actingAs($creator)->post(route('creator.projects.store'), [
+            'title' => 'Public Sky Forge',
+            'summary' => 'A project that becomes public after all moderation cases are approved.',
+            'game' => 'minecraft',
+            'project_type' => 'plugin',
+            'version' => '1.0.0',
+            'external_url' => 'https://modrinth.com/plugin/public',
+        ])->assertRedirect(route('creator.dashboard'));
+
+        $project = Project::query()
+            ->with('releases.externalTargets')
+            ->where('slug', 'public-sky-forge')
+            ->firstOrFail();
+        $moderator = $this->moderator();
+
+        ModerationCase::query()
+            ->where('status', 'open')
+            ->each(function (ModerationCase $case) use ($moderator): void {
+                $this->actingAs($moderator)
+                    ->post(route('moderation.decide', $case), ['action' => 'approve'])
+                    ->assertRedirect(route('moderation.index'));
+            });
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('Public Sky Forge');
+
+        $target = $project->fresh()->latestPublicRelease->publicExternalTargets->firstOrFail();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($signedUrl)
+            ->assertRedirect('https://modrinth.com/plugin/public')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
     }
 
     private function creator(): User

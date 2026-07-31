@@ -121,6 +121,30 @@
             color: var(--ink);
         }
 
+        .details {
+            display: grid;
+            gap: 10px;
+            margin: 16px 0;
+            padding: 0;
+        }
+
+        .details div {
+            display: grid;
+            gap: 3px;
+        }
+
+        .details dt {
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .details dd {
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
         .button {
             display: inline-flex;
             align-items: center;
