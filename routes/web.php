@@ -10,6 +10,7 @@ use App\Http\Controllers\RightsCaseController;
 use App\Models\Project;
 use App\Services\TrustSafetyPolicy;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 
 Route::get('/', function () {
     $games = config('safedrop.games');
@@ -68,8 +69,31 @@ Route::get('/go/{slug}', function (string $slug) {
     return view('redirect', [
         'project' => $project,
         'target' => $target,
+        'signedRedirectUrl' => URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes((int) config('safedrop.redirects.signed_url_ttl_minutes')),
+            ['slug' => $project->slug, 'target' => $target->id],
+        ),
     ]);
-})->name('redirect.preview');
+})->middleware('throttle:redirect-previews')->name('redirect.preview');
+
+Route::get('/go/{slug}/out/{target}', function (string $slug, int $target) {
+    $project = Project::query()
+        ->publiclyVisible()
+        ->with(['latestPublicRelease.publicExternalTargets'])
+        ->where('slug', $slug)
+        ->firstOrFail();
+
+    $policy = app(TrustSafetyPolicy::class);
+    $externalTarget = $project->latestPublicRelease?->publicExternalTargets
+        ->first(fn ($externalTarget): bool => $externalTarget->id === $target && $policy->canRedirectToTarget($externalTarget));
+
+    abort_unless($externalTarget, 403);
+
+    return redirect()->away($externalTarget->publicDestinationUrl(), 302, [
+        'Referrer-Policy' => 'no-referrer',
+    ]);
+})->middleware(['signed', 'throttle:redirect-outbound'])->name('redirect.out');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');

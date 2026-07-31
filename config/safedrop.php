@@ -136,6 +136,11 @@ return [
         ],
     ],
 
+    'redirects' => [
+        'signed_url_ttl_minutes' => 10,
+        'rate_limit_per_minute' => 30,
+    ],
+
     'seed_projects' => [
         [
             'slug' => 'skyforge-build-tools',

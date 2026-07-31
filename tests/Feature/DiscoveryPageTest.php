@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\Release;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class DiscoveryPageTest extends TestCase
@@ -163,6 +164,169 @@ class DiscoveryPageTest extends TestCase
         $this->get("/go/{$project->slug}")
             ->assertOk()
             ->assertSee('https://modrinth.com/plugin/fallback-example');
+    }
+
+    public function test_signed_redirect_opens_reviewed_external_destination(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($signedUrl)
+            ->assertRedirect('https://modrinth.com/plugin/example')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+    }
+
+    public function test_signed_redirect_rejects_tampered_or_blocked_target(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+
+        $tamperedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id + 1],
+        );
+
+        $this->get($tamperedUrl)->assertForbidden();
+
+        $target->forceFill(['trust_status' => 'blocked'])->save();
+
+        $blockedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($blockedUrl)->assertForbidden();
+    }
+
+    public function test_signed_redirect_rejects_invalid_signature(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($signedUrl.'&target='.($target->id + 1))->assertForbidden();
+    }
+
+    public function test_signed_redirect_rejects_expired_signature(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->subMinute(),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($signedUrl)->assertForbidden();
+    }
+
+    public function test_signed_redirect_rejects_target_drift_after_preview(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $target->forceFill([
+            'normalized_url' => 'https://evil.example/project',
+            'target_domain' => 'modrinth.com',
+        ])->save();
+
+        $this->get($signedUrl)->assertForbidden();
+    }
+
+    public function test_signed_redirect_rejects_project_or_release_visibility_changes(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $project->forceFill(['moderation_status' => 'blocked'])->save();
+
+        $this->get($signedUrl)->assertNotFound();
+
+        $project->forceFill(['moderation_status' => 'approved'])->save();
+        $project->latestPublicRelease->forceFill(['moderation_status' => 'blocked'])->save();
+
+        $this->get($signedUrl)->assertForbidden();
+    }
+
+    public function test_signed_redirect_rejects_cross_project_target_reuse(): void
+    {
+        $project = $this->seedReviewedProject(slug: 'first-project');
+        $otherProject = $this->seedReviewedProject(slug: 'second-project');
+        $otherTarget = $otherProject->refresh()->latestPublicRelease->publicExternalTargets->first();
+
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $otherTarget->id],
+        );
+
+        $this->get($signedUrl)->assertForbidden();
+    }
+
+    public function test_signed_redirect_is_rate_limited(): void
+    {
+        config(['safedrop.redirects.rate_limit_per_minute' => 1]);
+
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get($signedUrl)->assertRedirect('https://modrinth.com/plugin/example');
+        $this->get($signedUrl)->assertTooManyRequests();
+    }
+
+    public function test_preview_and_signed_redirect_use_separate_rate_limit_buckets(): void
+    {
+        config(['safedrop.redirects.rate_limit_per_minute' => 1]);
+
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get("/go/{$project->slug}")->assertOk();
+        $this->get($signedUrl)->assertRedirect('https://modrinth.com/plugin/example');
+    }
+
+    public function test_redirect_preview_is_rate_limited(): void
+    {
+        config(['safedrop.redirects.rate_limit_per_minute' => 1]);
+
+        $project = $this->seedReviewedProject();
+
+        $this->get("/go/{$project->slug}")->assertOk();
+        $this->get("/go/{$project->slug}")->assertTooManyRequests();
     }
 
     public function test_project_page_hides_continue_link_without_safe_approved_target(): void

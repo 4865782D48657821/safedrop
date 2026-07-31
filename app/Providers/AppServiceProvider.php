@@ -21,5 +21,19 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(20)->by("reports:{$identity}");
         });
+
+        RateLimiter::for('redirect-previews', function (Request $request) {
+            $identity = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute((int) config('safedrop.redirects.rate_limit_per_minute'))
+                ->by("redirect-previews:{$identity}");
+        });
+
+        RateLimiter::for('redirect-outbound', function (Request $request) {
+            $identity = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute((int) config('safedrop.redirects.rate_limit_per_minute'))
+                ->by("redirect-outbound:{$identity}");
+        });
     }
 }
