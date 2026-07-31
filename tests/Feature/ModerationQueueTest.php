@@ -280,6 +280,37 @@ class ModerationQueueTest extends TestCase
         $this->assertDatabaseCount('moderation_cases', 0);
     }
 
+    public function test_rights_case_project_validation_uses_public_project_status_config(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+        config()->set('safedrop.public_project_statuses.publication', ['published', 'listed']);
+        config()->set('safedrop.public_project_statuses.moderation', ['approved', 'trusted']);
+
+        $project = Project::query()->create([
+            'creator_id' => $this->creator()->id,
+            'slug' => 'listed-rights-project',
+            'title' => 'Listed Rights Project',
+            'summary' => 'A project accepted by expanded public status config.',
+            'game' => 'minecraft',
+            'project_type' => 'plugin',
+            'publication_status' => 'listed',
+            'moderation_status' => 'trusted',
+        ]);
+
+        $this->post(route('rights.store'), [
+            'project_id' => $project->id,
+            'claimant_name' => 'Rights Owner',
+            'claimant_email' => 'rights@example.test',
+            'claim_type' => 'copyright',
+            'details' => 'This project appears to reuse copyrighted material without permission.',
+        ])->assertRedirect(route('rights.create'));
+
+        $this->assertDatabaseHas(RightsCase::class, [
+            'project_id' => $project->id,
+            'claim_type' => 'copyright',
+        ]);
+    }
+
     public function test_moderator_can_view_open_cases(): void
     {
         $case = ModerationCase::openForSubject(

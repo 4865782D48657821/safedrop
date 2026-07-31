@@ -46,8 +46,7 @@ class Project extends Model
     public function latestPublicRelease()
     {
         return $this->hasOne(Release::class)
-            ->where('moderation_status', 'approved')
-            ->whereNotNull('published_at')
+            ->publiclyExposable()
             ->latestOfMany('published_at');
     }
 

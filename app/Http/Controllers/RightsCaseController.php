@@ -29,8 +29,8 @@ class RightsCaseController extends Controller
                 'nullable',
                 'integer',
                 Rule::exists('projects', 'id')
-                    ->where('publication_status', 'published')
-                    ->where('moderation_status', 'approved'),
+                    ->whereIn('publication_status', config('safedrop.public_project_statuses.publication'))
+                    ->whereIn('moderation_status', config('safedrop.public_project_statuses.moderation')),
             ],
             'claimant_name' => ['required', 'string', 'max:120'],
             'claimant_email' => ['required', 'email', 'max:255'],

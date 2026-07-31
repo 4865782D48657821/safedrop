@@ -11,14 +11,14 @@ class TrustSafetyPolicy
 {
     public function canDiscoverProject(Project $project): bool
     {
-        return $project->publication_status === 'published'
-            && $project->moderation_status === 'approved';
+        return in_array($project->publication_status, config('safedrop.public_project_statuses.publication'), true)
+            && in_array($project->moderation_status, config('safedrop.public_project_statuses.moderation'), true);
     }
 
     public function canExposeRelease(Release $release): bool
     {
         return $release->published_at !== null
-            && $release->moderation_status === 'approved';
+            && in_array($release->moderation_status, config('safedrop.public_release_statuses.moderation'), true);
     }
 
     public function canRedirectToTarget(ExternalTarget $target): bool

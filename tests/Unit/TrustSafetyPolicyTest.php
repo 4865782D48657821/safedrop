@@ -10,10 +10,13 @@ use App\Models\Project;
 use App\Models\Release;
 use App\Models\User;
 use App\Services\TrustSafetyPolicy;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class TrustSafetyPolicyTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_only_published_and_approved_projects_are_discoverable(): void
     {
         $policy = app(TrustSafetyPolicy::class);
@@ -32,6 +35,31 @@ class TrustSafetyPolicyTest extends TestCase
         ])));
     }
 
+    public function test_project_policy_and_scope_share_configured_statuses(): void
+    {
+        config()->set('safedrop.public_project_statuses.publication', ['published', 'listed']);
+        config()->set('safedrop.public_project_statuses.moderation', ['approved', 'trusted']);
+
+        $creator = User::query()->create([
+            'name' => 'Creator',
+            'email' => 'policy-scope-creator@safedrop.test',
+            'password' => 'safe-password',
+        ]);
+        $project = Project::query()->create([
+            'creator_id' => $creator->id,
+            'slug' => 'policy-scope-project',
+            'title' => 'Policy Scope Project',
+            'summary' => 'A project using expanded visibility config.',
+            'game' => 'minecraft',
+            'project_type' => 'plugin',
+            'publication_status' => 'listed',
+            'moderation_status' => 'trusted',
+        ]);
+
+        $this->assertTrue(app(TrustSafetyPolicy::class)->canDiscoverProject($project));
+        $this->assertTrue(Project::query()->publiclyVisible()->whereKey($project->id)->exists());
+    }
+
     public function test_only_published_and_approved_releases_are_exposable(): void
     {
         $policy = app(TrustSafetyPolicy::class);
@@ -48,6 +76,37 @@ class TrustSafetyPolicyTest extends TestCase
             'published_at' => now(),
             'moderation_status' => 'pending',
         ])));
+    }
+
+    public function test_release_policy_and_latest_relation_share_configured_statuses(): void
+    {
+        config()->set('safedrop.public_release_statuses.moderation', ['approved', 'trusted']);
+
+        $creator = User::query()->create([
+            'name' => 'Creator',
+            'email' => 'release-policy-creator@safedrop.test',
+            'password' => 'safe-password',
+        ]);
+        $project = Project::query()->create([
+            'creator_id' => $creator->id,
+            'slug' => 'release-policy-project',
+            'title' => 'Release Policy Project',
+            'summary' => 'A project using expanded release config.',
+            'game' => 'roblox',
+            'project_type' => 'resource',
+            'publication_status' => 'published',
+            'moderation_status' => 'approved',
+        ]);
+        $release = Release::query()->create([
+            'project_id' => $project->id,
+            'version' => '1.0.0',
+            'published_at' => now(),
+            'moderation_status' => 'trusted',
+        ]);
+
+        $this->assertTrue(app(TrustSafetyPolicy::class)->canExposeRelease($release));
+        $this->assertTrue(Release::query()->publiclyExposable()->whereKey($release->id)->exists());
+        $this->assertSame($release->id, $project->fresh()->latestPublicRelease->id);
     }
 
     public function test_redirect_policy_blocks_unsafe_or_untrusted_targets(): void

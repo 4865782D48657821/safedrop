@@ -35,6 +35,13 @@ class Release extends Model
         return $this->hasMany(ExternalTarget::class);
     }
 
+    public function scopePubliclyExposable($query)
+    {
+        return $query
+            ->whereIn('moderation_status', config('safedrop.public_release_statuses.moderation'))
+            ->whereNotNull('published_at');
+    }
+
     public function approvedExternalTargets(): HasMany
     {
         return $this->publicExternalTargets();
