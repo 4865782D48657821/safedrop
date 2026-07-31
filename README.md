@@ -18,6 +18,18 @@ composer run dev
 
 The local app runs at `http://127.0.0.1:8000`.
 
+## Demo Data
+
+`php artisan db:seed` loads demo data only for `local`, `dev`, `development`, `qa`, `quality-assurance`, and `testing` environments.
+
+All demo users use the password `development-only`:
+
+- `member@safedrop.test`
+- `creator@safedrop.test`
+- `adult-creator@safedrop.test`
+- `moderator@safedrop.test`
+- `admin@safedrop.test`
+
 ## Verification
 
 ```sh
