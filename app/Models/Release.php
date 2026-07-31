@@ -37,9 +37,15 @@ class Release extends Model
 
     public function approvedExternalTargets(): HasMany
     {
+        return $this->publicExternalTargets();
+    }
+
+    public function publicExternalTargets(): HasMany
+    {
         return $this->externalTargets()
             ->where('trust_status', 'approved')
             ->where('reachability_status', 'reachable')
+            ->whereIn('domain_status', config('safedrop.publishable_domain_statuses'))
             ->where('target_type', 'project_page');
     }
 }

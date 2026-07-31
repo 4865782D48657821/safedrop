@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AgeGroup;
+use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 
 return [
@@ -47,6 +48,19 @@ return [
         'approved',
         'blocked',
         'needs_review',
+    ],
+
+    'domain_statuses' => [
+        DomainStatus::Trusted->value,
+        DomainStatus::Known->value,
+        DomainStatus::New->value,
+        DomainStatus::Suspicious->value,
+        DomainStatus::Blocked->value,
+    ],
+
+    'publishable_domain_statuses' => [
+        DomainStatus::Trusted->value,
+        DomainStatus::Known->value,
     ],
 
     'mvp_external_target_types' => [

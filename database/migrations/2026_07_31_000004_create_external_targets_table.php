@@ -15,6 +15,7 @@ return new class extends Migration
             $table->text('normalized_url')->nullable();
             $table->json('redirect_chain')->nullable();
             $table->string('target_domain')->index();
+            $table->string('domain_status')->default('new')->index();
             $table->string('target_type')->default('project_page');
             $table->timestamp('last_checked_at')->nullable();
             $table->string('reachability_status')->default('unchecked');

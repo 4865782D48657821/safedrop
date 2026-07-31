@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AgeGroup;
+use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 use App\Models\ExternalTarget;
 use App\Models\Project;
@@ -36,6 +37,7 @@ class DiscoveryPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Safety Status');
+        $response->assertSee('Domain status');
         $response->assertSee('modrinth.com');
     }
 
@@ -97,11 +99,45 @@ class DiscoveryPageTest extends TestCase
         $this->get("/go/{$project->slug}")->assertForbidden();
     }
 
+    public function test_redirect_preview_rejects_new_domain_until_domain_review_passes(): void
+    {
+        $project = $this->seedReviewedProject(targetOverrides: [
+            'domain_status' => DomainStatus::New,
+        ]);
+
+        $this->get("/go/{$project->slug}")->assertForbidden();
+    }
+
+    public function test_redirect_preview_rejects_suspicious_or_blocked_domain_statuses(): void
+    {
+        $suspiciousProject = $this->seedReviewedProject(
+            slug: 'suspicious-project',
+            targetOverrides: ['domain_status' => DomainStatus::Suspicious],
+        );
+        $blockedProject = $this->seedReviewedProject(
+            slug: 'blocked-project',
+            targetOverrides: ['domain_status' => DomainStatus::Blocked],
+        );
+
+        $this->get("/go/{$suspiciousProject->slug}")->assertForbidden();
+        $this->get("/go/{$blockedProject->slug}")->assertForbidden();
+    }
+
     public function test_redirect_preview_rejects_approved_target_with_unsafe_scheme(): void
     {
         $project = $this->seedReviewedProject(targetOverrides: [
             'original_url' => 'javascript:alert(1)',
             'normalized_url' => 'javascript:alert(1)',
+        ]);
+
+        $this->get("/go/{$project->slug}")->assertForbidden();
+    }
+
+    public function test_redirect_preview_rejects_target_url_that_drifts_from_reviewed_domain(): void
+    {
+        $project = $this->seedReviewedProject(targetOverrides: [
+            'target_domain' => 'modrinth.com',
+            'normalized_url' => 'https://evil.example/project',
         ]);
 
         $this->get("/go/{$project->slug}")->assertForbidden();
@@ -140,11 +176,23 @@ class DiscoveryPageTest extends TestCase
             ->assertDontSee('Continue safely');
     }
 
-    private function seedReviewedProject(array $targetOverrides = []): Project
+    public function test_project_page_hides_continue_link_for_unreviewed_domain_status(): void
+    {
+        $project = $this->seedReviewedProject(targetOverrides: [
+            'domain_status' => DomainStatus::New,
+        ]);
+
+        $this->get("/projects/{$project->slug}")
+            ->assertOk()
+            ->assertSee('does not have an approved external destination')
+            ->assertDontSee('Continue safely');
+    }
+
+    private function seedReviewedProject(array $targetOverrides = [], string $slug = 'skyforge-build-tools'): Project
     {
         $project = Project::query()->create([
             'creator_id' => $this->creator()->id,
-            'slug' => 'skyforge-build-tools',
+            'slug' => $slug,
             'title' => 'SkyForge Build Tools',
             'summary' => 'Server utilities for protected build zones and collaborative survival maps.',
             'description' => 'A moderated Minecraft server plugin starter project for protected build zones.',
@@ -173,6 +221,7 @@ class DiscoveryPageTest extends TestCase
             'normalized_url' => 'https://modrinth.com/plugin/example',
             'redirect_chain' => ['https://modrinth.com/plugin/example'],
             'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
             'target_type' => 'project_page',
             'last_checked_at' => now(),
             'reachability_status' => 'reachable',

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\AgeGroup;
+use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 use App\Models\ExternalTarget;
 use App\Models\Project;
@@ -54,18 +55,19 @@ class ProjectDataModelTest extends TestCase
             'normalized_url' => 'https://modrinth.com/resourcepack/castle-pack',
             'redirect_chain' => ['https://modrinth.com/resourcepack/castle-pack'],
             'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
             'target_type' => 'project_page',
             'reachability_status' => 'reachable',
             'trust_status' => 'approved',
         ]);
 
-        $project->refresh()->load('creator', 'latestPublicRelease.approvedExternalTargets');
+        $project->refresh()->load('creator', 'latestPublicRelease.publicExternalTargets');
 
         $this->assertSame('Creator', $project->creator->name);
         $this->assertSame(['building'], $project->categories);
         $this->assertSame(['minecraft', 'resource-pack'], $project->tags);
         $this->assertSame(['minecraft_versions' => ['1.21']], $project->latestPublicRelease->compatibility);
-        $this->assertSame('modrinth.com', $project->latestPublicRelease->approvedExternalTargets->first()->target_domain);
+        $this->assertSame('modrinth.com', $project->latestPublicRelease->publicExternalTargets->first()->target_domain);
     }
 
     public function test_external_target_only_exposes_http_and_https_destination_urls(): void
@@ -92,6 +94,67 @@ class ProjectDataModelTest extends TestCase
         $this->assertSame('HTTPS://example.com/project', $uppercaseSchemeTarget->safeDestinationUrl());
         $this->assertNull($unsafeTarget->safeDestinationUrl());
         $this->assertNull($privateTarget->safeDestinationUrl());
+    }
+
+    public function test_external_target_public_destination_requires_publishable_statuses(): void
+    {
+        $target = new ExternalTarget([
+            'original_url' => 'https://example.com/project',
+            'normalized_url' => 'https://example.com/project',
+            'target_domain' => 'example.com',
+            'domain_status' => DomainStatus::Known,
+            'target_type' => 'project_page',
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+
+        $this->assertSame('https://example.com/project', $target->publicDestinationUrl());
+
+        $target->domain_status = DomainStatus::New;
+        $this->assertNull($target->publicDestinationUrl());
+
+        $target->domain_status = DomainStatus::Suspicious;
+        $this->assertNull($target->publicDestinationUrl());
+
+        $target->domain_status = DomainStatus::Blocked;
+        $this->assertNull($target->publicDestinationUrl());
+    }
+
+    public function test_external_target_public_destination_requires_reviewed_domain_match(): void
+    {
+        $target = new ExternalTarget([
+            'original_url' => 'https://modrinth.com/plugin/example',
+            'normalized_url' => 'https://evil.example/project',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'target_type' => 'project_page',
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+
+        $this->assertNull($target->publicDestinationUrl());
+    }
+
+    public function test_configured_domain_statuses_are_castable(): void
+    {
+        foreach (config('safedrop.domain_statuses') as $status) {
+            $target = new ExternalTarget([
+                'domain_status' => $status,
+            ]);
+
+            $this->assertInstanceOf(DomainStatus::class, $target->domain_status);
+        }
+    }
+
+    public function test_unreachable_reachability_is_exposed_as_effective_domain_status(): void
+    {
+        $target = new ExternalTarget([
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'unreachable',
+        ]);
+
+        $this->assertSame('unreachable', $target->effectiveDomainStatus());
+        $this->assertNull($target->publicDestinationUrl());
     }
 
     public function test_approved_external_targets_are_limited_to_project_pages(): void
@@ -124,11 +187,12 @@ class ProjectDataModelTest extends TestCase
             'release_id' => $release->id,
             'original_url' => 'https://example.com/file.zip',
             'target_domain' => 'example.com',
+            'domain_status' => DomainStatus::Known,
             'target_type' => 'file_download',
             'reachability_status' => 'reachable',
             'trust_status' => 'approved',
         ]);
 
-        $this->assertCount(0, $release->approvedExternalTargets);
+        $this->assertCount(0, $release->publicExternalTargets);
     }
 }

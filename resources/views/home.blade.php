@@ -32,7 +32,7 @@
                     <div class="meta">
                         <span class="pill">{{ ucfirst($project->game) }}</span>
                         <span class="pill">{{ str_replace('_', ' ', $project->project_type) }}</span>
-                        <span class="pill">{{ $project->latestPublicRelease?->approvedExternalTargets->first()?->trust_status ?? 'needs review' }}</span>
+                        <span class="pill">{{ $project->latestPublicRelease?->publicExternalTargets->first()?->effectiveDomainStatus() ?? 'needs review' }}</span>
                     </div>
                     <a class="button" href="{{ route('projects.show', $project->slug) }}">View project</a>
                 </article>

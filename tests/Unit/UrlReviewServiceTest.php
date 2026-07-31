@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Enums\DomainStatus;
 use App\Models\ExternalTarget;
 use App\Models\Release;
 use App\Services\UrlReviewService;
@@ -43,7 +44,12 @@ class UrlReviewServiceTest extends TestCase
         $this->assertSame('blocked', $service->review('https://user:pass@example.com/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://localhost/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://127.0.0.1/project')->trustStatus);
+        $this->assertSame('blocked', $service->review('https://127.1/project')->trustStatus);
+        $this->assertSame('blocked', $service->review('https://127.0.1/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://10.0.0.4/project')->trustStatus);
+        $this->assertSame('blocked', $service->review('https://10.1/project')->trustStatus);
+        $this->assertSame('blocked', $service->review('https://192.168.1/project')->trustStatus);
+        $this->assertSame('blocked', $service->review('https://169.254.1/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://[::1]/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://[fe80::1]/project')->trustStatus);
         $this->assertSame('blocked', $service->review('https://2130706433/project')->trustStatus);
@@ -78,7 +84,18 @@ class UrlReviewServiceTest extends TestCase
         $this->assertSame(123, $target->release_id);
         $this->assertSame('https://create.roblox.com/store/asset/example', $target->normalized_url);
         $this->assertSame('create.roblox.com', $target->target_domain);
+        $this->assertSame(DomainStatus::New, $target->domain_status);
         $this->assertSame('pending', $target->trust_status);
+    }
+
+    public function test_review_signals_map_to_suspicious_domain_status(): void
+    {
+        $release = (new Release)->forceFill(['id' => 123]);
+        $review = app(UrlReviewService::class)->review('https://bit.ly/project');
+
+        $target = ExternalTarget::makeFromReview($release, $review);
+
+        $this->assertSame(DomainStatus::Suspicious, $target->domain_status);
     }
 
     public function test_blocked_review_results_cannot_be_built_as_external_targets(): void

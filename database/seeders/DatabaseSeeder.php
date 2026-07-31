@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\AgeGroup;
+use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 use App\Models\ExternalTarget;
 use App\Models\Project;
@@ -61,6 +62,7 @@ class DatabaseSeeder extends Seeder
                 'normalized_url' => 'https://modrinth.com/plugin/example',
                 'redirect_chain' => ['https://modrinth.com/plugin/example'],
                 'target_domain' => 'modrinth.com',
+                'domain_status' => DomainStatus::Known,
                 'target_type' => 'project_page',
                 'last_checked_at' => now(),
                 'reachability_status' => 'reachable',
@@ -100,6 +102,7 @@ class DatabaseSeeder extends Seeder
                 'normalized_url' => 'https://create.roblox.com/store/asset/example',
                 'redirect_chain' => ['https://create.roblox.com/store/asset/example'],
                 'target_domain' => 'create.roblox.com',
+                'domain_status' => DomainStatus::Known,
                 'target_type' => 'project_page',
                 'last_checked_at' => now(),
                 'reachability_status' => 'reachable',

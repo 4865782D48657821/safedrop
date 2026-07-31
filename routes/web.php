@@ -11,7 +11,7 @@ Route::get('/', function () {
     $games = config('safedrop.games');
     $projects = Project::query()
         ->publiclyVisible()
-        ->with(['creator', 'latestPublicRelease.approvedExternalTargets'])
+        ->with(['creator', 'latestPublicRelease.publicExternalTargets'])
         ->latest('updated_at')
         ->get();
 
@@ -24,12 +24,12 @@ Route::get('/', function () {
 Route::get('/projects/{slug}', function (string $slug) {
     $project = Project::query()
         ->publiclyVisible()
-        ->with(['creator', 'latestPublicRelease.approvedExternalTargets'])
+        ->with(['creator', 'latestPublicRelease.publicExternalTargets'])
         ->where('slug', $slug)
         ->firstOrFail();
 
-    $target = $project->latestPublicRelease?->approvedExternalTargets
-        ->first(fn ($target): bool => $target->safeDestinationUrl() !== null);
+    $target = $project->latestPublicRelease?->publicExternalTargets
+        ->first(fn ($target): bool => $target->publicDestinationUrl() !== null);
 
     return view('project', [
         'project' => $project,
@@ -40,12 +40,12 @@ Route::get('/projects/{slug}', function (string $slug) {
 Route::get('/go/{slug}', function (string $slug) {
     $project = Project::query()
         ->publiclyVisible()
-        ->with(['latestPublicRelease.approvedExternalTargets'])
+        ->with(['latestPublicRelease.publicExternalTargets'])
         ->where('slug', $slug)
         ->firstOrFail();
 
-    $target = $project->latestPublicRelease?->approvedExternalTargets
-        ->first(fn ($target): bool => $target->safeDestinationUrl() !== null);
+    $target = $project->latestPublicRelease?->publicExternalTargets
+        ->first(fn ($target): bool => $target->publicDestinationUrl() !== null);
 
     abort_unless($target, 403);
 

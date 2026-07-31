@@ -17,6 +17,7 @@
             <h2>Safety Status</h2>
             @if ($target)
                 <p>This destination is currently marked as <strong>{{ $target->trust_status }}</strong>.</p>
+                <p>Domain status: <strong>{{ $target->effectiveDomainStatus() }}</strong></p>
                 <p>Target domain: <strong>{{ $target->target_domain }}</strong></p>
                 <a class="button" href="{{ route('redirect.preview', $project->slug) }}">Continue safely</a>
             @else

@@ -10,6 +10,6 @@
 
     <section class="notice">
         <p>You are about to leave Safedrop for <strong>{{ $target->target_domain }}</strong>.</p>
-        <a class="button" href="{{ $target->safeDestinationUrl() }}" rel="nofollow noopener noreferrer">Open external site</a>
+        <a class="button" href="{{ $target->publicDestinationUrl() }}" rel="nofollow noopener noreferrer">Open external site</a>
     </section>
 @endsection

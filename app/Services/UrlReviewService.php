@@ -103,15 +103,11 @@ class UrlReviewService
             }
         }
 
-        if ($this->isNonCanonicalIpLiteral($host)) {
-            return true;
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
         }
 
-        if (! filter_var($host, FILTER_VALIDATE_IP)) {
-            return false;
-        }
-
-        return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        return $this->isNonCanonicalIpLiteral($host);
     }
 
     private function isNonCanonicalIpLiteral(string $host): bool
@@ -121,6 +117,10 @@ class UrlReviewService
         }
 
         if (preg_match('/^0x[0-9a-f]+$/i', $host) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^[0-9.]+$/', $host) === 1 && str_contains($host, '.')) {
             return true;
         }
 
