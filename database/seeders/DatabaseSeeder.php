@@ -6,6 +6,7 @@ use App\Enums\AgeGroup;
 use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 use App\Models\ExternalTarget;
+use App\Models\ModerationCase;
 use App\Models\Project;
 use App\Models\Release;
 use App\Models\User;
@@ -133,6 +134,20 @@ class DatabaseSeeder extends Seeder
                 'target_type' => $target['target_type'],
             ],
             $target,
+        );
+
+        ModerationCase::query()->updateOrCreate(
+            [
+                'subject_type' => Project::class,
+                'subject_id' => $projectModel->id,
+                'category' => 'project_metadata',
+                'status' => 'resolved',
+            ],
+            [
+                'risk_level' => 'low',
+                'reason' => 'Seed project starts approved for local discovery.',
+                'reviewed_at' => now(),
+            ],
         );
     }
 }

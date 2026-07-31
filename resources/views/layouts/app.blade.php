@@ -197,6 +197,9 @@
                 @if (auth()->user()->canPublishProjects())
                     <a href="{{ route('creator.dashboard') }}">Creator</a>
                 @endif
+                @if (auth()->user()->canModerateContent())
+                    <a href="{{ route('moderation.index') }}">Moderation</a>
+                @endif
                 <form method="post" action="{{ route('logout') }}">
                     @csrf
                     <button class="link-button" type="submit">Logout</button>

@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
+use App\Http\Controllers\ModerationController;
 use App\Models\Project;
 use Illuminate\Support\Facades\Route;
 
@@ -66,5 +67,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/account', AccountController::class)->name('account.show');
     Route::get('/creator', CreatorDashboardController::class)->name('creator.dashboard');
+    Route::get('/moderation', [ModerationController::class, 'index'])->name('moderation.index');
+    Route::post('/moderation/cases/{case}/decisions', [ModerationController::class, 'decide'])->name('moderation.decide');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

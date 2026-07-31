@@ -63,6 +63,20 @@ return [
         DomainStatus::Known->value,
     ],
 
+    'moderation_actions' => [
+        'approve',
+        'needs_review',
+        'block',
+    ],
+
+    'moderation_case_categories' => [
+        'project_metadata',
+        'release',
+        'external_target',
+        'report',
+        'rights_case',
+    ],
+
     'mvp_external_target_types' => [
         'project_page',
     ],
