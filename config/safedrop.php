@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\AgeGroup;
+use App\Enums\UserRole;
+
 return [
     'games' => [
         'minecraft' => [
@@ -12,21 +15,31 @@ return [
         ],
     ],
 
-    'roles' => [
+    'access_actors' => [
         'guest',
-        'member',
-        'junior_creator',
-        'adult_creator_unverified',
-        'adult_creator_verified',
-        'advertiser',
-        'moderator',
-        'administrator',
+        UserRole::Member->value,
+        UserRole::JuniorCreator->value,
+        UserRole::AdultCreatorUnverified->value,
+        UserRole::AdultCreatorVerified->value,
+        UserRole::Advertiser->value,
+        UserRole::Moderator->value,
+        UserRole::Administrator->value,
+    ],
+
+    'roles' => [
+        UserRole::Member->value,
+        UserRole::JuniorCreator->value,
+        UserRole::AdultCreatorUnverified->value,
+        UserRole::AdultCreatorVerified->value,
+        UserRole::Advertiser->value,
+        UserRole::Moderator->value,
+        UserRole::Administrator->value,
     ],
 
     'age_groups' => [
-        'JUNIOR',
-        'ADULT_UNVERIFIED',
-        'ADULT_VERIFIED',
+        AgeGroup::Junior->value,
+        AgeGroup::AdultUnverified->value,
+        AgeGroup::AdultVerified->value,
     ],
 
     'trust_statuses' => [

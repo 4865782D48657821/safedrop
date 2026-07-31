@@ -141,6 +141,49 @@
             background: #fff7e6;
             color: var(--warn);
         }
+
+        .form {
+            display: grid;
+            gap: 14px;
+            width: min(520px, 100%);
+            margin: 28px 0;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            font-weight: 700;
+        }
+
+        input {
+            min-height: 42px;
+            padding: 9px 11px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            font: inherit;
+        }
+
+        button.button {
+            border: 0;
+            cursor: pointer;
+        }
+
+        .link-button {
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: var(--accent-strong);
+            font: inherit;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+            cursor: pointer;
+        }
+
+        .error {
+            margin: -6px 0 0;
+            color: #b91c1c;
+        }
     </style>
 </head>
 <body>
@@ -149,6 +192,19 @@
         <nav aria-label="Primary">
             <a href="{{ route('home') }}">Discovery</a>
             <a href="{{ route('home') }}#projects">Projects</a>
+            @auth
+                <a href="{{ route('account.show') }}">Account</a>
+                @if (auth()->user()->canPublishProjects())
+                    <a href="{{ route('creator.dashboard') }}">Creator</a>
+                @endif
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="link-button" type="submit">Logout</button>
+                </form>
+            @else
+                <a href="{{ route('login') }}">Login</a>
+                <a href="{{ route('register') }}">Register</a>
+            @endauth
         </nav>
     </header>
 
