@@ -9,6 +9,7 @@ use App\Models\ExternalTarget;
 use App\Models\Project;
 use App\Models\Release;
 use App\Models\User;
+use App\Services\UrlReviewService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -133,6 +134,27 @@ class ProjectDataModelTest extends TestCase
         ]);
 
         $this->assertNull($target->publicDestinationUrl());
+    }
+
+    public function test_external_target_public_destination_requires_current_dns_reachability(): void
+    {
+        app()->instance(UrlReviewService::class, new UrlReviewService(fn (string $host): array => $host === 'example.com' ? [] : ['93.184.216.34']));
+
+        try {
+            $target = new ExternalTarget([
+                'original_url' => 'https://example.com/project',
+                'normalized_url' => 'https://example.com/project',
+                'target_domain' => 'example.com',
+                'domain_status' => DomainStatus::Known,
+                'target_type' => 'project_page',
+                'reachability_status' => 'reachable',
+                'trust_status' => 'approved',
+            ]);
+
+            $this->assertNull($target->publicDestinationUrl());
+        } finally {
+            $this->fakeUrlReviewDns();
+        }
     }
 
     public function test_configured_domain_statuses_are_castable(): void

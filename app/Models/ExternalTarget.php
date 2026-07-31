@@ -64,6 +64,10 @@ class ExternalTarget extends Model
 
         $review = app(UrlReviewService::class)->review($url, $this->target_type ?: 'project_page');
 
+        if ($review->reachabilityStatus !== 'reachable') {
+            return null;
+        }
+
         if ($review->targetDomain !== $this->targetDomain()) {
             return null;
         }

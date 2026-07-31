@@ -23,7 +23,12 @@ class TrustSafetyPolicy
 
     public function canRedirectToTarget(ExternalTarget $target): bool
     {
-        return $target->publicDestinationUrl() !== null;
+        return $this->redirectDestinationForTarget($target) !== null;
+    }
+
+    public function redirectDestinationForTarget(ExternalTarget $target): ?string
+    {
+        return $target->publicDestinationUrl();
     }
 
     public function canMonetize(User $user): bool

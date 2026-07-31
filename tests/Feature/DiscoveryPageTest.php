@@ -252,6 +252,21 @@ class DiscoveryPageTest extends TestCase
         $this->get($signedUrl)->assertForbidden();
     }
 
+    public function test_signed_redirect_rejects_currently_unreachable_target(): void
+    {
+        $project = $this->seedReviewedProject();
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->fakeUrlReviewDns(['modrinth.com' => []]);
+
+        $this->get($signedUrl)->assertForbidden();
+    }
+
     public function test_signed_redirect_rejects_project_or_release_visibility_changes(): void
     {
         $project = $this->seedReviewedProject();

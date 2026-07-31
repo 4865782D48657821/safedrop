@@ -85,12 +85,21 @@ Route::get('/go/{slug}/out/{target}', function (string $slug, int $target) {
         ->firstOrFail();
 
     $policy = app(TrustSafetyPolicy::class);
+    $destinationUrl = null;
     $externalTarget = $project->latestPublicRelease?->publicExternalTargets
-        ->first(fn ($externalTarget): bool => $externalTarget->id === $target && $policy->canRedirectToTarget($externalTarget));
+        ->first(function ($externalTarget) use ($target, $policy, &$destinationUrl): bool {
+            if ($externalTarget->id !== $target) {
+                return false;
+            }
 
-    abort_unless($externalTarget, 403);
+            $destinationUrl = $policy->redirectDestinationForTarget($externalTarget);
 
-    return redirect()->away($externalTarget->publicDestinationUrl(), 302, [
+            return $destinationUrl !== null;
+        });
+
+    abort_unless($externalTarget && $destinationUrl !== null, 403);
+
+    return redirect()->away($destinationUrl, 302, [
         'Referrer-Policy' => 'no-referrer',
     ]);
 })->middleware(['signed', 'throttle:redirect-outbound'])->name('redirect.out');
