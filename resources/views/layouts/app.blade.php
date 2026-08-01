@@ -173,6 +173,21 @@
             margin: 28px 0;
         }
 
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            align-items: end;
+            margin: 18px 0 24px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
         label {
             display: grid;
             gap: 6px;

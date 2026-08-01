@@ -9,20 +9,58 @@ use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
 use App\Models\Project;
 use App\Services\TrustSafetyPolicy;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 
-Route::get('/', function () {
+Route::get('/', function (Request $request) {
     $games = config('safedrop.games');
-    $projects = Project::query()
+    $game = $request->query('game');
+    $selectedGame = is_string($game) && array_key_exists($game, $games) ? $game : null;
+
+    $projectTypes = $selectedGame
+        ? $games[$selectedGame]['project_types']
+        : array_values(array_unique(array_merge(...array_column($games, 'project_types'))));
+
+    $projectType = $request->query('project_type');
+    $selectedProjectType = is_string($projectType) && in_array($projectType, $projectTypes, true) ? $projectType : null;
+
+    $q = $request->query('q');
+    $search = is_string($q) ? trim(substr($q, 0, 80)) : '';
+
+    $query = Project::query()
         ->publiclyVisible()
         ->with(['creator', 'latestPublicRelease.publicExternalTargets'])
-        ->latest('updated_at')
-        ->get();
+        ->latest('updated_at');
+
+    if ($selectedGame !== null) {
+        $query->where('game', $selectedGame);
+    }
+
+    if ($selectedProjectType !== null) {
+        $query->where('project_type', $selectedProjectType);
+    }
+
+    if ($search !== '') {
+        $query->where(function ($query) use ($search): void {
+            $like = '%'.addcslashes($search, '\\%_').'%';
+
+            $query
+                ->whereRaw("title like ? escape '\\'", [$like])
+                ->orWhereRaw("summary like ? escape '\\'", [$like])
+                ->orWhereRaw("tags like ? escape '\\'", [$like]);
+        });
+    }
 
     return view('home', [
         'games' => $games,
-        'projects' => $projects,
+        'projects' => $query->get(),
+        'filters' => [
+            'game' => $selectedGame,
+            'project_type' => $selectedProjectType,
+            'q' => $search,
+        ],
+        'projectTypes' => $projectTypes,
     ]);
 })->name('home');
 

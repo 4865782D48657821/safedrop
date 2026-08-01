@@ -30,6 +30,63 @@ class DiscoveryPageTest extends TestCase
         $response->assertSee('SkyForge Build Tools');
     }
 
+    public function test_homepage_filters_reviewed_projects_by_game_type_and_search(): void
+    {
+        $this->seedReviewedProject();
+        $this->seedReviewedProject(
+            slug: 'obby-race-kit',
+            projectOverrides: [
+                'title' => 'Obby Race Kit',
+                'summary' => 'Starter kit for timing checkpoints and mobile friendly race UI.',
+                'game' => 'roblox',
+                'project_type' => 'resource',
+                'tags' => ['templates', 'mobile'],
+            ],
+            targetOverrides: [
+                'original_url' => 'https://create.roblox.com/store/asset/example',
+                'normalized_url' => 'https://create.roblox.com/store/asset/example',
+                'redirect_chain' => ['https://create.roblox.com/store/asset/example'],
+                'target_domain' => 'create.roblox.com',
+            ],
+        );
+
+        $this->get('/?game=roblox')
+            ->assertOk()
+            ->assertSee('Obby Race Kit')
+            ->assertDontSee('SkyForge Build Tools');
+
+        $this->get('/?game=minecraft&project_type=plugin')
+            ->assertOk()
+            ->assertSee('SkyForge Build Tools')
+            ->assertDontSee('Obby Race Kit');
+
+        $this->get('/?q=mobile')
+            ->assertOk()
+            ->assertSee('Obby Race Kit')
+            ->assertDontSee('SkyForge Build Tools');
+    }
+
+    public function test_homepage_ignores_invalid_or_non_scalar_filters(): void
+    {
+        $this->seedReviewedProject();
+
+        $this->get('/?game[]=minecraft&project_type[]=plugin&q[]=servers')
+            ->assertOk()
+            ->assertSee('SkyForge Build Tools')
+            ->assertSee('All games')
+            ->assertSee('All types');
+    }
+
+    public function test_homepage_search_treats_like_wildcards_as_literal_text(): void
+    {
+        $this->seedReviewedProject();
+
+        $this->get('/?q=%')
+            ->assertOk()
+            ->assertSee('No reviewed projects found')
+            ->assertDontSee('SkyForge Build Tools');
+    }
+
     public function test_project_page_exposes_reviewed_external_destination(): void
     {
         $this->seedReviewedProject();
@@ -368,9 +425,9 @@ class DiscoveryPageTest extends TestCase
             ->assertDontSee('Continue safely');
     }
 
-    private function seedReviewedProject(array $targetOverrides = [], string $slug = 'skyforge-build-tools'): Project
+    private function seedReviewedProject(array $targetOverrides = [], string $slug = 'skyforge-build-tools', array $projectOverrides = []): Project
     {
-        $project = Project::query()->create([
+        $project = Project::query()->create(array_merge([
             'creator_id' => $this->creator()->id,
             'slug' => $slug,
             'title' => 'SkyForge Build Tools',
@@ -385,7 +442,7 @@ class DiscoveryPageTest extends TestCase
             'publication_status' => 'published',
             'moderation_status' => 'approved',
             'age_rating' => '12+',
-        ]);
+        ], $projectOverrides));
 
         $release = Release::query()->create([
             'project_id' => $project->id,
