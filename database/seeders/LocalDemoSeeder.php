@@ -204,6 +204,19 @@ class LocalDemoSeeder extends Seeder
                 'notify_livestreams' => true,
             ],
         );
+        $member->onboardingPreference()->updateOrCreate(
+            [],
+            [
+                'games' => ['minecraft', 'roblox'],
+                'project_types' => ['plugin', 'resource'],
+                'categories' => ['servers', 'templates'],
+                'versions' => ['minecraft:1.21', 'roblox:latest'],
+                'platforms' => ['desktop', 'mobile', 'java'],
+                'creator_ids' => [$juniorCreator->id, $adultCreator->id],
+                'completed_at' => now(),
+                'skipped_at' => null,
+            ],
+        );
         $member->projectRatings()->updateOrCreate(
             ['project_id' => $minecraftProject->id],
             ['signal' => ProjectRating::HELPFUL],

@@ -22,6 +22,11 @@
             <h2>Monetization</h2>
             <p>{{ $user->canMonetizeProjects() ? 'Monetization is enabled.' : 'Monetization requires adult creator verification.' }}</p>
         </article>
+        <article class="card">
+            <h2>Feed Interests</h2>
+            <p>{{ $onboardingPreference?->completed_at ? 'Your feed interests are active.' : 'No active feed interests yet.' }}</p>
+            <a class="button" href="{{ route('onboarding.edit') }}">Update interests</a>
+        </article>
     </section>
 
     <section>

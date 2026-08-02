@@ -8,6 +8,7 @@ use App\Http\Controllers\CreatorFollowController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\NotificationCenterController;
 use App\Http\Controllers\NotificationPreferenceController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProjectInterestFeedbackController;
 use App\Http\Controllers\ProjectRatingController;
 use App\Http\Controllers\ProjectReportController;
@@ -48,6 +49,7 @@ Route::get('/', function (Request $request) {
             'q' => $search,
         ],
         'projectTypes' => $projectTypes,
+        'showOnboardingPrompt' => auth()->check() && ! auth()->user()->onboardingPreference()->exists(),
     ]);
 })->name('home');
 
@@ -156,6 +158,9 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/account', AccountController::class)->name('account.show');
+    Route::get('/onboarding', [OnboardingController::class, 'edit'])->name('onboarding.edit');
+    Route::put('/onboarding', [OnboardingController::class, 'update'])->name('onboarding.update');
+    Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
     Route::get('/notifications', [NotificationCenterController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{notification}/read', [NotificationCenterController::class, 'markRead'])->name('notifications.read');
     Route::put('/creators/{creator}/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('creator-notification-preferences.update');

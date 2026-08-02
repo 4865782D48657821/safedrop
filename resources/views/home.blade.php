@@ -24,6 +24,19 @@
 
     <section id="projects">
         <h2>Reviewed Projects</h2>
+        @if ($showOnboardingPrompt)
+            <article class="card">
+                <h3>Personalize your first feed</h3>
+                <p>Choose games, project types, categories, versions, platforms, and creators.</p>
+                <div class="actions">
+                    <a class="button" href="{{ route('onboarding.edit') }}">Set interests</a>
+                    <form method="post" action="{{ route('onboarding.skip') }}">
+                        @csrf
+                        <button class="button button-secondary" type="submit">Skip</button>
+                    </form>
+                </div>
+            </article>
+        @endif
         <form class="filters" method="get" action="{{ route('home') }}#projects">
             <label>
                 Search

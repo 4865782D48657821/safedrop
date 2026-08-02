@@ -43,6 +43,9 @@ class LocalDemoSeederTest extends TestCase
             'notify_new_releases' => true,
             'notify_livestreams' => true,
         ]);
+        $this->assertDatabaseHas('user_onboarding_preferences', [
+            'user_id' => User::query()->where('email', 'member@safedrop.test')->value('id'),
+        ]);
         $minecraftProject = Project::query()->where('slug', 'skyforge-build-tools')->firstOrFail();
         $juniorCreator = User::query()->where('email', 'creator@safedrop.test')->firstOrFail();
         $this->assertDatabaseHas('member_notifications', [
@@ -70,6 +73,7 @@ class LocalDemoSeederTest extends TestCase
             'projects' => Project::query()->count(),
             'open_cases' => ModerationCase::query()->where('status', 'open')->count(),
             'notifications' => MemberNotification::query()->count(),
+            'onboarding_preferences' => User::query()->whereHas('onboardingPreference')->count(),
         ];
 
         $this->seed(DatabaseSeeder::class);
@@ -78,6 +82,7 @@ class LocalDemoSeederTest extends TestCase
         $this->assertSame($firstCounts['projects'], Project::query()->count());
         $this->assertSame($firstCounts['open_cases'], ModerationCase::query()->where('status', 'open')->count());
         $this->assertSame($firstCounts['notifications'], MemberNotification::query()->count());
+        $this->assertSame($firstCounts['onboarding_preferences'], User::query()->whereHas('onboardingPreference')->count());
     }
 
     public function test_database_seeder_does_not_create_demo_data_in_production_environment(): void

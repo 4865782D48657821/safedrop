@@ -18,6 +18,7 @@ class AccountController extends Controller
 
         return view('account.show', [
             'user' => $request->user(),
+            'onboardingPreference' => $request->user()->onboardingPreference()->first(),
             'savedProjects' => $request->user()
                 ->savedProjects()
                 ->publiclyVisible()

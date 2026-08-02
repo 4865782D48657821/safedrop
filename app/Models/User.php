@@ -6,6 +6,7 @@ use App\Enums\AgeGroup;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -76,6 +77,11 @@ class User extends Authenticatable
     public function memberNotifications(): HasMany
     {
         return $this->hasMany(MemberNotification::class);
+    }
+
+    public function onboardingPreference(): HasOne
+    {
+        return $this->hasOne(UserOnboardingPreference::class);
     }
 
     public function canPublishProjects(): bool

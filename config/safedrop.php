@@ -16,6 +16,31 @@ return [
         ],
     ],
 
+    'onboarding' => [
+        'categories' => [
+            'adventure',
+            'building',
+            'creator_tools',
+            'moderation',
+            'mobile',
+            'servers',
+            'templates',
+            'tools',
+        ],
+        'versions' => [
+            'minecraft:1.21',
+            'minecraft:1.20',
+            'roblox:latest',
+        ],
+        'platforms' => [
+            'desktop',
+            'mobile',
+            'console',
+            'java',
+            'bedrock',
+        ],
+    ],
+
     'access_actors' => [
         'guest',
         UserRole::Member->value,
