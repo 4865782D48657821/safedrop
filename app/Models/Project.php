@@ -54,6 +54,11 @@ class Project extends Model
         return $this->hasMany(ProjectRating::class);
     }
 
+    public function interestFeedback(): HasMany
+    {
+        return $this->hasMany(ProjectInterestFeedback::class);
+    }
+
     public function latestPublicRelease()
     {
         return $this->hasOne(Release::class)

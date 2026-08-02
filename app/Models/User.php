@@ -63,6 +63,11 @@ class User extends Authenticatable
         return $this->hasMany(ProjectRating::class);
     }
 
+    public function projectInterestFeedback(): HasMany
+    {
+        return $this->hasMany(ProjectInterestFeedback::class);
+    }
+
     public function canPublishProjects(): bool
     {
         return $this->isCreator();

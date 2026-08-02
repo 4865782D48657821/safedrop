@@ -41,6 +41,17 @@ class AccountController extends Controller
                 ->withPivot('id', 'created_at')
                 ->latest('creator_follows.created_at')
                 ->get(),
+            'unavailableInterestFeedback' => $request->user()
+                ->projectInterestFeedback()
+                ->whereHas('project', function ($query): void {
+                    $query->whereNot(function ($query): void {
+                        $query
+                            ->whereIn('publication_status', config('safedrop.public_project_statuses.publication'))
+                            ->whereIn('moderation_status', config('safedrop.public_project_statuses.moderation'));
+                    });
+                })
+                ->latest()
+                ->get(['id']),
         ]);
     }
 }

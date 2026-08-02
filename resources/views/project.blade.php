@@ -98,6 +98,27 @@
             @endauth
         </article>
         <article class="card">
+            <h2>Feed Preference</h2>
+            @auth
+                @if ($isNotInterested)
+                    <p>This project is marked as not interesting for your feed.</p>
+                    <form method="post" action="{{ route('projects.interest-feedback.destroy', $project->slug) }}">
+                        @csrf
+                        @method('delete')
+                        <button class="button button-secondary" type="submit">Show in feed again</button>
+                    </form>
+                @else
+                    <p>This preference is private and only affects personalization.</p>
+                    <form method="post" action="{{ route('projects.interest-feedback.store', $project->slug) }}">
+                        @csrf
+                        <button class="button button-secondary" type="submit">Not interested</button>
+                    </form>
+                @endif
+            @else
+                <a class="button" href="{{ route('login') }}">Log in to personalize</a>
+            @endauth
+        </article>
+        <article class="card">
             <h2>Tags</h2>
             <div class="meta">
                 @foreach ($project->tags ?? [] as $tag)

@@ -112,4 +112,23 @@
             </div>
         </section>
     @endif
+
+    @if ($unavailableInterestFeedback->isNotEmpty())
+        <section>
+            <h2>Unavailable Feed Preferences</h2>
+            <div class="grid">
+                @foreach ($unavailableInterestFeedback as $feedback)
+                    <article class="card">
+                        <h3>Unavailable project</h3>
+                        <p>This feed preference points to a project that is no longer publicly available.</p>
+                        <form method="post" action="{{ route('interest-feedback.destroy', $feedback->id) }}">
+                            @csrf
+                            @method('delete')
+                            <button class="button button-secondary" type="submit">Remove</button>
+                        </form>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
 @endsection

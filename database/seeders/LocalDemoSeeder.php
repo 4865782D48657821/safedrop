@@ -9,6 +9,7 @@ use App\Models\ContentReport;
 use App\Models\ExternalTarget;
 use App\Models\ModerationCase;
 use App\Models\Project;
+use App\Models\ProjectInterestFeedback;
 use App\Models\ProjectRating;
 use App\Models\Release;
 use App\Models\RightsCase;
@@ -189,6 +190,10 @@ class LocalDemoSeeder extends Seeder
         $member->projectRatings()->updateOrCreate(
             ['project_id' => $minecraftProject->id],
             ['signal' => ProjectRating::HELPFUL],
+        );
+        $member->projectInterestFeedback()->updateOrCreate(
+            ['project_id' => $robloxProject->id],
+            ['signal' => ProjectInterestFeedback::NOT_INTERESTED],
         );
     }
 

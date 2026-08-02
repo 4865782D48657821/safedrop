@@ -28,6 +28,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by("project-ratings:{$identity}");
         });
 
+        RateLimiter::for('project-interest-feedback', function (Request $request) {
+            $identity = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(30)->by("project-interest-feedback:{$identity}");
+        });
+
         RateLimiter::for('redirect-previews', function (Request $request) {
             $identity = $request->user()?->id ?: $request->ip();
 

@@ -7,6 +7,7 @@ use App\Enums\DomainStatus;
 use App\Enums\UserRole;
 use App\Models\ExternalTarget;
 use App\Models\Project;
+use App\Models\ProjectInterestFeedback;
 use App\Models\Release;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,6 +86,39 @@ class DiscoveryPageTest extends TestCase
             ->assertOk()
             ->assertSee('No reviewed projects found')
             ->assertDontSee('SkyForge Build Tools');
+    }
+
+    public function test_homepage_hides_projects_marked_not_interested_for_authenticated_user(): void
+    {
+        $user = $this->member();
+        $hiddenProject = $this->seedReviewedProject();
+        $visibleProject = $this->seedReviewedProject(
+            slug: 'obby-race-kit',
+            projectOverrides: [
+                'title' => 'Obby Race Kit',
+                'summary' => 'Starter kit for timing checkpoints and mobile friendly race UI.',
+                'game' => 'roblox',
+                'project_type' => 'resource',
+                'tags' => ['templates', 'mobile'],
+            ],
+            targetOverrides: [
+                'original_url' => 'https://create.roblox.com/store/asset/example',
+                'normalized_url' => 'https://create.roblox.com/store/asset/example',
+                'redirect_chain' => ['https://create.roblox.com/store/asset/example'],
+                'target_domain' => 'create.roblox.com',
+            ],
+        );
+
+        $user->projectInterestFeedback()->create([
+            'project_id' => $hiddenProject->id,
+            'signal' => ProjectInterestFeedback::NOT_INTERESTED,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/')
+            ->assertOk()
+            ->assertDontSee('SkyForge Build Tools')
+            ->assertSee($visibleProject->title);
     }
 
     public function test_project_page_exposes_reviewed_external_destination(): void
@@ -466,6 +500,15 @@ class DiscoveryPageTest extends TestCase
         ], $targetOverrides));
 
         return $project;
+    }
+
+    private function member(): User
+    {
+        return User::query()->create([
+            'name' => 'Member',
+            'email' => 'member@safedrop.test',
+            'password' => 'safe-password',
+        ]);
     }
 
     private function creator(): User

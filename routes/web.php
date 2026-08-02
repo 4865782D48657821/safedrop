@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
 use App\Http\Controllers\CreatorFollowController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ProjectInterestFeedbackController;
 use App\Http\Controllers\ProjectRatingController;
 use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
@@ -55,6 +56,13 @@ Route::get('/', function (Request $request) {
         });
     }
 
+    if (auth()->check()) {
+        $query->whereDoesntHave(
+            'interestFeedback',
+            fn ($query) => $query->where('user_id', auth()->id())->where('signal', 'not_interested'),
+        );
+    }
+
     return view('home', [
         'games' => $games,
         'projects' => $query->get(),
@@ -92,6 +100,7 @@ Route::get('/projects/{slug}', function (string $slug) {
         'isSaved' => auth()->user()?->savedProjects()->whereKey($project->id)->exists() ?? false,
         'isFollowingCreator' => auth()->user()?->followedCreators()->whereKey($project->creator_id)->exists() ?? false,
         'currentRating' => auth()->user()?->projectRatings()->where('project_id', $project->id)->value('signal'),
+        'isNotInterested' => auth()->user()?->projectInterestFeedback()->where('project_id', $project->id)->exists() ?? false,
     ]);
 })->name('projects.show');
 
@@ -181,6 +190,15 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/projects/{slug}/rating', [ProjectRatingController::class, 'destroy'])
         ->middleware('throttle:project-ratings')
         ->name('projects.rating.destroy');
+    Route::post('/projects/{slug}/interest-feedback', [ProjectInterestFeedbackController::class, 'store'])
+        ->middleware('throttle:project-interest-feedback')
+        ->name('projects.interest-feedback.store');
+    Route::delete('/projects/{slug}/interest-feedback', [ProjectInterestFeedbackController::class, 'destroy'])
+        ->middleware('throttle:project-interest-feedback')
+        ->name('projects.interest-feedback.destroy');
+    Route::delete('/interest-feedback/{projectInterestFeedback}', [ProjectInterestFeedbackController::class, 'destroyUnavailable'])
+        ->middleware('throttle:project-interest-feedback')
+        ->name('interest-feedback.destroy');
 
     Route::get('/creator/projects/create', [CreatorDashboardController::class, 'create'])->name('creator.projects.create');
     Route::post('/creator/projects', [CreatorDashboardController::class, 'store'])->name('creator.projects.store');
