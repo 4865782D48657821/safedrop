@@ -158,6 +158,12 @@
             text-decoration: none;
         }
 
+        .button-secondary {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--accent-strong);
+        }
+
         .notice {
             padding: 16px;
             border: 1px solid #f2c97d;

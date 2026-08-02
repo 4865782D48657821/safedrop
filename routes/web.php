@@ -7,6 +7,7 @@ use App\Http\Controllers\CreatorDashboardController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
+use App\Http\Controllers\SavedProjectController;
 use App\Models\Project;
 use App\Services\TrustSafetyPolicy;
 use Illuminate\Http\Request;
@@ -79,6 +80,7 @@ Route::get('/projects/{slug}', function (string $slug) {
         'project' => $project,
         'target' => $target,
         'adsAllowed' => $policy->canShowRevenueAdsOnProject($project),
+        'isSaved' => auth()->user()?->savedProjects()->whereKey($project->id)->exists() ?? false,
     ]);
 })->name('projects.show');
 
@@ -156,6 +158,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/moderation', [ModerationController::class, 'index'])->name('moderation.index');
     Route::post('/moderation/cases/{case}/decisions', [ModerationController::class, 'decide'])->name('moderation.decide');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::post('/projects/{slug}/saved', [SavedProjectController::class, 'store'])->name('projects.saved.store');
+    Route::delete('/projects/{slug}/saved', [SavedProjectController::class, 'destroy'])->name('projects.saved.destroy');
+    Route::delete('/saved-projects/{savedProject}', [SavedProjectController::class, 'destroyUnavailable'])->name('saved-projects.destroy');
 
     Route::get('/creator/projects/create', [CreatorDashboardController::class, 'create'])->name('creator.projects.create');
     Route::post('/creator/projects', [CreatorDashboardController::class, 'store'])->name('creator.projects.store');

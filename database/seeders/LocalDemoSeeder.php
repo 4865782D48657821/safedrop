@@ -177,6 +177,10 @@ class LocalDemoSeeder extends Seeder
 
         $this->report($member, $minecraftProject);
         $this->rightsCase($robloxProject);
+        $member->savedProjects()->syncWithoutDetaching([
+            $minecraftProject->id,
+            $robloxProject->id,
+        ]);
     }
 
     private function user(

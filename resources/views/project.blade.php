@@ -14,6 +14,22 @@
             <span class="pill">By {{ $project->creator->name }}</span>
             <span class="pill">{{ $project->language }}</span>
         </div>
+        @auth
+            @if ($isSaved)
+                <form method="post" action="{{ route('projects.saved.destroy', $project->slug) }}">
+                    @csrf
+                    @method('delete')
+                    <button class="button button-secondary" type="submit">Saved</button>
+                </form>
+            @else
+                <form method="post" action="{{ route('projects.saved.store', $project->slug) }}">
+                    @csrf
+                    <button class="button" type="submit">Save project</button>
+                </form>
+            @endif
+        @else
+            <a class="button" href="{{ route('login') }}">Log in to save</a>
+        @endauth
     </section>
 
     <section class="grid">
