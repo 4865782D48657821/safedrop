@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
 use App\Http\Controllers\CreatorFollowController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\ProjectRatingController;
 use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
 use App\Http\Controllers\SavedProjectController;
@@ -73,6 +74,10 @@ Route::get('/projects/{slug}', function (string $slug) {
             'creator' => fn ($query) => $query->withCount('followerUsers'),
             'latestPublicRelease.publicExternalTargets',
         ])
+        ->withCount([
+            'ratings as helpful_ratings_count' => fn ($query) => $query->where('signal', 'helpful'),
+            'ratings as not_helpful_ratings_count' => fn ($query) => $query->where('signal', 'not_helpful'),
+        ])
         ->where('slug', $slug)
         ->firstOrFail();
 
@@ -86,6 +91,7 @@ Route::get('/projects/{slug}', function (string $slug) {
         'adsAllowed' => $policy->canShowRevenueAdsOnProject($project),
         'isSaved' => auth()->user()?->savedProjects()->whereKey($project->id)->exists() ?? false,
         'isFollowingCreator' => auth()->user()?->followedCreators()->whereKey($project->creator_id)->exists() ?? false,
+        'currentRating' => auth()->user()?->projectRatings()->where('project_id', $project->id)->value('signal'),
     ]);
 })->name('projects.show');
 
@@ -169,6 +175,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/creators/{creator}/follow', [CreatorFollowController::class, 'store'])->name('creator-follows.store');
     Route::delete('/creators/{creator}/follow', [CreatorFollowController::class, 'destroy'])->name('creator-follows.destroy');
     Route::delete('/creator-follows/{creatorFollow}', [CreatorFollowController::class, 'destroyUnavailable'])->name('creator-follows.unavailable.destroy');
+    Route::post('/projects/{slug}/rating', [ProjectRatingController::class, 'store'])
+        ->middleware('throttle:project-ratings')
+        ->name('projects.rating.store');
+    Route::delete('/projects/{slug}/rating', [ProjectRatingController::class, 'destroy'])
+        ->middleware('throttle:project-ratings')
+        ->name('projects.rating.destroy');
 
     Route::get('/creator/projects/create', [CreatorDashboardController::class, 'create'])->name('creator.projects.create');
     Route::post('/creator/projects', [CreatorDashboardController::class, 'store'])->name('creator.projects.store');

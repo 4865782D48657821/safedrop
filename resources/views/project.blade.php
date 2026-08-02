@@ -78,6 +78,26 @@
             <p>{{ $adsAllowed ? 'Revenue ads are eligible after campaign review.' : 'Revenue ads are disabled for this project.' }}</p>
         </article>
         <article class="card">
+            <h2>Project Feedback</h2>
+            <p>{{ $project->helpful_ratings_count }} helpful · {{ $project->not_helpful_ratings_count }} not helpful</p>
+            @auth
+                <form class="actions" method="post" action="{{ route('projects.rating.store', $project->slug) }}">
+                    @csrf
+                    <button class="button {{ $currentRating === 'helpful' ? 'button-secondary' : '' }}" name="signal" value="helpful" type="submit">Helpful</button>
+                    <button class="button {{ $currentRating === 'not_helpful' ? 'button-secondary' : '' }}" name="signal" value="not_helpful" type="submit">Not helpful</button>
+                </form>
+                @if ($currentRating !== null)
+                    <form method="post" action="{{ route('projects.rating.destroy', $project->slug) }}">
+                        @csrf
+                        @method('delete')
+                        <button class="link-button" type="submit">Remove feedback</button>
+                    </form>
+                @endif
+            @else
+                <a class="button" href="{{ route('login') }}">Log in to rate</a>
+            @endauth
+        </article>
+        <article class="card">
             <h2>Tags</h2>
             <div class="meta">
                 @foreach ($project->tags ?? [] as $tag)

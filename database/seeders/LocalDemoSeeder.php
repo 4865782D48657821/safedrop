@@ -9,6 +9,7 @@ use App\Models\ContentReport;
 use App\Models\ExternalTarget;
 use App\Models\ModerationCase;
 use App\Models\Project;
+use App\Models\ProjectRating;
 use App\Models\Release;
 use App\Models\RightsCase;
 use App\Models\User;
@@ -185,6 +186,10 @@ class LocalDemoSeeder extends Seeder
             $juniorCreator->id,
             $adultCreator->id,
         ]);
+        $member->projectRatings()->updateOrCreate(
+            ['project_id' => $minecraftProject->id],
+            ['signal' => ProjectRating::HELPFUL],
+        );
     }
 
     private function user(

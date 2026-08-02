@@ -58,6 +58,11 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function projectRatings(): HasMany
+    {
+        return $this->hasMany(ProjectRating::class);
+    }
+
     public function canPublishProjects(): bool
     {
         return $this->isCreator();

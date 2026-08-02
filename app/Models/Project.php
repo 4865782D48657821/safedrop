@@ -49,6 +49,11 @@ class Project extends Model
         return $this->belongsToMany(User::class, 'saved_projects')->withPivot('id')->withTimestamps();
     }
 
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(ProjectRating::class);
+    }
+
     public function latestPublicRelease()
     {
         return $this->hasOne(Release::class)
