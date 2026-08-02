@@ -15,24 +15,53 @@
             <span class="pill">{{ $project->language }}</span>
         </div>
         @auth
-            @if ($isSaved)
-                <form method="post" action="{{ route('projects.saved.destroy', $project->slug) }}">
-                    @csrf
-                    @method('delete')
-                    <button class="button button-secondary" type="submit">Saved</button>
-                </form>
-            @else
-                <form method="post" action="{{ route('projects.saved.store', $project->slug) }}">
-                    @csrf
-                    <button class="button" type="submit">Save project</button>
-                </form>
-            @endif
+            <div class="actions">
+                @if ($isSaved)
+                    <form method="post" action="{{ route('projects.saved.destroy', $project->slug) }}">
+                        @csrf
+                        @method('delete')
+                        <button class="button button-secondary" type="submit">Saved</button>
+                    </form>
+                @else
+                    <form method="post" action="{{ route('projects.saved.store', $project->slug) }}">
+                        @csrf
+                        <button class="button" type="submit">Save project</button>
+                    </form>
+                @endif
+
+                @if (auth()->id() !== $project->creator_id)
+                    @if ($isFollowingCreator)
+                        <form method="post" action="{{ route('creator-follows.destroy', $project->creator_id) }}">
+                            @csrf
+                            @method('delete')
+                            <button class="button button-secondary" type="submit">Following creator</button>
+                        </form>
+                    @else
+                        <form method="post" action="{{ route('creator-follows.store', $project->creator_id) }}">
+                            @csrf
+                            <button class="button" type="submit">Follow creator</button>
+                        </form>
+                    @endif
+                @endif
+            </div>
         @else
-            <a class="button" href="{{ route('login') }}">Log in to save</a>
+            <div class="actions">
+                <a class="button" href="{{ route('login') }}">Log in to save</a>
+                <a class="button button-secondary" href="{{ route('login') }}">Log in to follow</a>
+            </div>
         @endauth
     </section>
 
     <section class="grid">
+        <article class="card">
+            <h2>Creator</h2>
+            <p>{{ $project->creator->name }}</p>
+            @if ($project->creator->follower_users_count === 1)
+                <p>1 follower</p>
+            @else
+                <p>{{ $project->creator->follower_users_count }} followers</p>
+            @endif
+        </article>
         <article class="card">
             <h2>Safety Status</h2>
             @if ($target)

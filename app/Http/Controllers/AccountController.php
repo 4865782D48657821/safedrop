@@ -28,6 +28,19 @@ class AccountController extends Controller
                 ->withPivot('id', 'created_at')
                 ->latest('saved_projects.created_at')
                 ->get(),
+            'followedCreators' => $request->user()
+                ->followedCreators()
+                ->whereHas('projects', fn ($query) => $query->publiclyVisible())
+                ->withCount(['projects as public_projects_count' => fn ($query) => $query->publiclyVisible()])
+                ->latest('creator_follows.created_at')
+                ->get(['users.id', 'users.name']),
+            'unavailableFollowedCreators' => $request->user()
+                ->followedCreators()
+                ->whereDoesntHave('projects', fn ($query) => $query->publiclyVisible())
+                ->select('users.id')
+                ->withPivot('id', 'created_at')
+                ->latest('creator_follows.created_at')
+                ->get(),
         ]);
     }
 }

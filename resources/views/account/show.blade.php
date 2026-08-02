@@ -25,6 +25,48 @@
     </section>
 
     <section>
+        <h2>Following</h2>
+        <div class="grid">
+            @forelse ($followedCreators as $creator)
+                <article class="card">
+                    <h3>{{ $creator->name }}</h3>
+                    <p>{{ $creator->public_projects_count }} public {{ $creator->public_projects_count === 1 ? 'project' : 'projects' }}</p>
+                    <form method="post" action="{{ route('creator-follows.destroy', $creator->id) }}">
+                        @csrf
+                        @method('delete')
+                        <button class="button button-secondary" type="submit">Unfollow</button>
+                    </form>
+                </article>
+            @empty
+                <article class="card">
+                    <h3>No followed creators yet</h3>
+                    <p>Follow creators from reviewed project pages.</p>
+                    <a class="button" href="{{ route('home') }}#projects">Browse projects</a>
+                </article>
+            @endforelse
+        </div>
+    </section>
+
+    @if ($unavailableFollowedCreators->isNotEmpty())
+        <section>
+            <h2>Unavailable Followed Creators</h2>
+            <div class="grid">
+                @foreach ($unavailableFollowedCreators as $creator)
+                    <article class="card">
+                        <h3>Unavailable creator</h3>
+                        <p>This followed creator no longer has public projects.</p>
+                        <form method="post" action="{{ route('creator-follows.unavailable.destroy', $creator->pivot->id) }}">
+                            @csrf
+                            @method('delete')
+                            <button class="button button-secondary" type="submit">Remove</button>
+                        </form>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    <section>
         <h2>Saved Projects</h2>
         <div class="grid">
             @forelse ($savedProjects as $project)

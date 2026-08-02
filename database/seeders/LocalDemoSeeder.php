@@ -181,6 +181,10 @@ class LocalDemoSeeder extends Seeder
             $minecraftProject->id,
             $robloxProject->id,
         ]);
+        $member->followedCreators()->syncWithoutDetaching([
+            $juniorCreator->id,
+            $adultCreator->id,
+        ]);
     }
 
     private function user(

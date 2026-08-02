@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
+use App\Http\Controllers\CreatorFollowController;
 use App\Http\Controllers\ModerationController;
 use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
@@ -68,7 +69,10 @@ Route::get('/', function (Request $request) {
 Route::get('/projects/{slug}', function (string $slug) {
     $project = Project::query()
         ->publiclyVisible()
-        ->with(['creator', 'latestPublicRelease.publicExternalTargets'])
+        ->with([
+            'creator' => fn ($query) => $query->withCount('followerUsers'),
+            'latestPublicRelease.publicExternalTargets',
+        ])
         ->where('slug', $slug)
         ->firstOrFail();
 
@@ -81,6 +85,7 @@ Route::get('/projects/{slug}', function (string $slug) {
         'target' => $target,
         'adsAllowed' => $policy->canShowRevenueAdsOnProject($project),
         'isSaved' => auth()->user()?->savedProjects()->whereKey($project->id)->exists() ?? false,
+        'isFollowingCreator' => auth()->user()?->followedCreators()->whereKey($project->creator_id)->exists() ?? false,
     ]);
 })->name('projects.show');
 
@@ -161,6 +166,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/projects/{slug}/saved', [SavedProjectController::class, 'store'])->name('projects.saved.store');
     Route::delete('/projects/{slug}/saved', [SavedProjectController::class, 'destroy'])->name('projects.saved.destroy');
     Route::delete('/saved-projects/{savedProject}', [SavedProjectController::class, 'destroyUnavailable'])->name('saved-projects.destroy');
+    Route::post('/creators/{creator}/follow', [CreatorFollowController::class, 'store'])->name('creator-follows.store');
+    Route::delete('/creators/{creator}/follow', [CreatorFollowController::class, 'destroy'])->name('creator-follows.destroy');
+    Route::delete('/creator-follows/{creatorFollow}', [CreatorFollowController::class, 'destroyUnavailable'])->name('creator-follows.unavailable.destroy');
 
     Route::get('/creator/projects/create', [CreatorDashboardController::class, 'create'])->name('creator.projects.create');
     Route::post('/creator/projects', [CreatorDashboardController::class, 'store'])->name('creator.projects.store');

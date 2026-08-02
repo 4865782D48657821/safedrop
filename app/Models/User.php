@@ -44,6 +44,20 @@ class User extends Authenticatable
         return $this->belongsToMany(Project::class, 'saved_projects')->withPivot('id')->withTimestamps();
     }
 
+    public function followedCreators(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'creator_follows', 'follower_id', 'creator_id')
+            ->withPivot('id')
+            ->withTimestamps();
+    }
+
+    public function followerUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'creator_follows', 'creator_id', 'follower_id')
+            ->withPivot('id')
+            ->withTimestamps();
+    }
+
     public function canPublishProjects(): bool
     {
         return $this->isCreator();
