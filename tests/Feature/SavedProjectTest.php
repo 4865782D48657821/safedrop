@@ -79,6 +79,27 @@ class SavedProjectTest extends TestCase
         ]);
     }
 
+    public function test_junior_user_cannot_save_adult_rated_project(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $user = $this->member();
+        $project = $this->publicProject([
+            'slug' => 'adult-rated-project',
+            'title' => 'Adult Rated Project',
+            'age_rating' => '18+',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('projects.saved.store', $project->slug))
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('saved_projects', [
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+        ]);
+    }
+
     public function test_account_page_lists_only_saved_projects_that_remain_public(): void
     {
         $user = $this->member();

@@ -140,6 +140,58 @@ class TrustSafetyPolicyTest extends TestCase
         $this->assertFalse($policy->canRedirectToTarget($unsafeUrl));
     }
 
+    public function test_feed_target_policy_matches_redirect_safety_contract(): void
+    {
+        $policy = app(TrustSafetyPolicy::class);
+
+        $approved = $this->target([
+            'original_url' => 'https://modrinth.com/plugin/example',
+            'normalized_url' => 'https://modrinth.com/plugin/example',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $nonHttps = $this->target([
+            'original_url' => 'http://modrinth.com/plugin/example',
+            'normalized_url' => 'http://modrinth.com/plugin/example',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $shortener = $this->target([
+            'original_url' => 'https://bit.ly/example',
+            'normalized_url' => 'https://bit.ly/example',
+            'target_domain' => 'bit.ly',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $unsafeScheme = $this->target([
+            'original_url' => 'javascript:alert(1)',
+            'normalized_url' => 'javascript:alert(1)',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+        $domainDrift = $this->target([
+            'original_url' => 'https://evil.example/project',
+            'normalized_url' => 'https://evil.example/project',
+            'target_domain' => 'modrinth.com',
+            'domain_status' => DomainStatus::Known,
+            'reachability_status' => 'reachable',
+            'trust_status' => 'approved',
+        ]);
+
+        $this->assertTrue($policy->canListTargetInFeed($approved));
+        $this->assertFalse($policy->canListTargetInFeed($nonHttps));
+        $this->assertFalse($policy->canListTargetInFeed($shortener));
+        $this->assertFalse($policy->canListTargetInFeed($unsafeScheme));
+        $this->assertFalse($policy->canListTargetInFeed($domainDrift));
+    }
+
     public function test_revenue_ads_require_verified_adult_creator_and_non_junior_age_rating(): void
     {
         $policy = app(TrustSafetyPolicy::class);

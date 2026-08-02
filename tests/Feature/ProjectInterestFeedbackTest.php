@@ -173,6 +173,27 @@ class ProjectInterestFeedbackTest extends TestCase
         ]);
     }
 
+    public function test_junior_user_cannot_set_interest_feedback_for_adult_rated_project(): void
+    {
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $user = $this->member();
+        $project = $this->publicProject([
+            'slug' => 'adult-rated-project',
+            'title' => 'Adult Rated Project',
+            'age_rating' => '18+',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('projects.interest-feedback.store', $project->slug))
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('project_interest_feedback', [
+            'user_id' => $user->id,
+            'project_id' => $project->id,
+        ]);
+    }
+
     public function test_database_rejects_direct_invalid_interest_feedback_signal_writes(): void
     {
         $user = $this->member();

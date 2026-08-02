@@ -3,17 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Services\TrustSafetyPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class SavedProjectController extends Controller
 {
+    public function __construct(private TrustSafetyPolicy $policy) {}
+
     public function store(Request $request, string $slug): RedirectResponse
     {
         $project = Project::query()
             ->publiclyVisible()
             ->where('slug', $slug)
             ->firstOrFail();
+
+        abort_unless($this->policy->canViewProject($project, $request->user()), 404);
 
         $request->user()->savedProjects()->syncWithoutDetaching([$project->id]);
 
@@ -26,6 +31,8 @@ class SavedProjectController extends Controller
             ->publiclyVisible()
             ->where('slug', $slug)
             ->firstOrFail();
+
+        abort_unless($this->policy->canViewProject($project, $request->user()), 404);
 
         $request->user()->savedProjects()->detach($project->id);
 

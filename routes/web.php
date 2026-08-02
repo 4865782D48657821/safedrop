@@ -12,6 +12,7 @@ use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\RightsCaseController;
 use App\Http\Controllers\SavedProjectController;
 use App\Models\Project;
+use App\Services\ProjectFeed;
 use App\Services\TrustSafetyPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,40 +33,13 @@ Route::get('/', function (Request $request) {
     $q = $request->query('q');
     $search = is_string($q) ? trim(substr($q, 0, 80)) : '';
 
-    $query = Project::query()
-        ->publiclyVisible()
-        ->with(['creator', 'latestPublicRelease.publicExternalTargets'])
-        ->latest('updated_at');
-
-    if ($selectedGame !== null) {
-        $query->where('game', $selectedGame);
-    }
-
-    if ($selectedProjectType !== null) {
-        $query->where('project_type', $selectedProjectType);
-    }
-
-    if ($search !== '') {
-        $query->where(function ($query) use ($search): void {
-            $like = '%'.addcslashes($search, '\\%_').'%';
-
-            $query
-                ->whereRaw("title like ? escape '\\'", [$like])
-                ->orWhereRaw("summary like ? escape '\\'", [$like])
-                ->orWhereRaw("tags like ? escape '\\'", [$like]);
-        });
-    }
-
-    if (auth()->check()) {
-        $query->whereDoesntHave(
-            'interestFeedback',
-            fn ($query) => $query->where('user_id', auth()->id())->where('signal', 'not_interested'),
-        );
-    }
-
     return view('home', [
         'games' => $games,
-        'projects' => $query->get(),
+        'projects' => app(ProjectFeed::class)->projects([
+            'game' => $selectedGame,
+            'project_type' => $selectedProjectType,
+            'q' => $search,
+        ], auth()->user()),
         'filters' => [
             'game' => $selectedGame,
             'project_type' => $selectedProjectType,
@@ -90,6 +64,8 @@ Route::get('/projects/{slug}', function (string $slug) {
         ->firstOrFail();
 
     $policy = app(TrustSafetyPolicy::class);
+    abort_unless($policy->canViewProject($project, auth()->user()), 404);
+
     $target = $project->latestPublicRelease?->publicExternalTargets
         ->first(fn ($target): bool => $policy->canRedirectToTarget($target));
 
@@ -121,6 +97,8 @@ Route::get('/go/{slug}', function (string $slug) {
         ->firstOrFail();
 
     $policy = app(TrustSafetyPolicy::class);
+    abort_unless($policy->canViewProject($project, auth()->user()), 404);
+
     $target = $project->latestPublicRelease?->publicExternalTargets
         ->first(fn ($target): bool => $policy->canRedirectToTarget($target));
 
@@ -145,6 +123,8 @@ Route::get('/go/{slug}/out/{target}', function (string $slug, int $target) {
         ->firstOrFail();
 
     $policy = app(TrustSafetyPolicy::class);
+    abort_unless($policy->canViewProject($project, auth()->user()), 404);
+
     $destinationUrl = null;
     $externalTarget = $project->latestPublicRelease?->publicExternalTargets
         ->first(function ($externalTarget) use ($target, $policy, &$destinationUrl): bool {

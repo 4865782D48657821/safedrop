@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\ExternalTarget;
 use App\Models\Project;
 use App\Models\ProjectInterestFeedback;
+use App\Models\ProjectRating;
 use App\Models\Release;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -119,6 +120,168 @@ class DiscoveryPageTest extends TestCase
             ->assertOk()
             ->assertDontSee('SkyForge Build Tools')
             ->assertSee($visibleProject->title);
+    }
+
+    public function test_homepage_feed_applies_hard_safety_filters_before_ranking(): void
+    {
+        $safeProject = $this->seedReviewedProject();
+        $this->seedReviewedProject(
+            slug: 'blocked-target-project',
+            projectOverrides: ['title' => 'Blocked Target Project'],
+            targetOverrides: ['trust_status' => 'blocked'],
+        );
+        $this->seedReviewedProject(
+            slug: 'unreachable-target-project',
+            projectOverrides: ['title' => 'Unreachable Target Project'],
+            targetOverrides: ['reachability_status' => 'unreachable'],
+        );
+        $this->seedReviewedProject(
+            slug: 'unsafe-scheme-project',
+            projectOverrides: ['title' => 'Unsafe Scheme Project'],
+            targetOverrides: [
+                'original_url' => 'javascript:alert(1)',
+                'normalized_url' => 'javascript:alert(1)',
+            ],
+        );
+        $this->seedReviewedProject(
+            slug: 'non-https-project',
+            projectOverrides: ['title' => 'Non HTTPS Project'],
+            targetOverrides: [
+                'original_url' => 'http://modrinth.com/plugin/example',
+                'normalized_url' => 'http://modrinth.com/plugin/example',
+            ],
+        );
+        $this->seedReviewedProject(
+            slug: 'shortener-project',
+            projectOverrides: ['title' => 'Shortener Project'],
+            targetOverrides: [
+                'original_url' => 'https://bit.ly/example',
+                'normalized_url' => 'https://bit.ly/example',
+                'target_domain' => 'bit.ly',
+            ],
+        );
+        $this->seedReviewedProject(
+            slug: 'domain-drift-project',
+            projectOverrides: ['title' => 'Domain Drift Project'],
+            targetOverrides: [
+                'normalized_url' => 'https://evil.example/project',
+                'target_domain' => 'modrinth.com',
+            ],
+        );
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee($safeProject->title)
+            ->assertDontSee('Blocked Target Project')
+            ->assertDontSee('Unreachable Target Project')
+            ->assertDontSee('Unsafe Scheme Project')
+            ->assertDontSee('Non HTTPS Project')
+            ->assertDontSee('Shortener Project')
+            ->assertDontSee('Domain Drift Project');
+    }
+
+    public function test_authenticated_feed_ranking_boosts_followed_creators_saved_projects_and_helpful_signals(): void
+    {
+        $user = $this->member();
+        $followedCreator = $this->creator('followed@safedrop.test', 'Followed Studio');
+        $popularProject = $this->seedReviewedProject(
+            slug: 'popular-project',
+            projectOverrides: ['title' => 'Popular Project'],
+        );
+        $followedProject = $this->seedReviewedProject(
+            slug: 'followed-project',
+            projectOverrides: [
+                'creator_id' => $followedCreator->id,
+                'title' => 'Followed Project',
+            ],
+        );
+        $savedProject = $this->seedReviewedProject(
+            slug: 'saved-project',
+            projectOverrides: ['title' => 'Saved Project'],
+        );
+
+        $popularProject->ratings()->create([
+            'user_id' => $this->member('rater@safedrop.test')->id,
+            'signal' => ProjectRating::HELPFUL,
+        ]);
+        $user->followedCreators()->syncWithoutDetaching([$followedCreator->id]);
+        $user->savedProjects()->syncWithoutDetaching([$savedProject->id]);
+
+        $this->actingAs($user)
+            ->get('/')
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Saved Project',
+                'Followed Project',
+                'Popular Project',
+            ]);
+    }
+
+    public function test_junior_and_guest_feeds_hide_non_junior_age_rated_projects(): void
+    {
+        $junior = $this->member();
+        $adult = $this->member('adult@safedrop.test')->forceFill(['age_group' => AgeGroup::AdultUnverified]);
+        $adult->save();
+
+        $this->seedReviewedProject();
+        $this->seedReviewedProject(
+            slug: 'adult-rated-project',
+            projectOverrides: [
+                'title' => 'Adult Rated Project',
+                'age_rating' => '18+',
+            ],
+        );
+
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee('Adult Rated Project');
+
+        $this->actingAs($junior)
+            ->get('/')
+            ->assertOk()
+            ->assertDontSee('Adult Rated Project');
+
+        $this->actingAs($adult)
+            ->get('/')
+            ->assertOk()
+            ->assertSee('Adult Rated Project');
+    }
+
+    public function test_project_and_redirect_routes_enforce_viewer_age_boundary(): void
+    {
+        $junior = $this->member();
+        $adult = $this->member('adult@safedrop.test')->forceFill(['age_group' => AgeGroup::AdultUnverified]);
+        $adult->save();
+        $project = $this->seedReviewedProject(
+            slug: 'adult-rated-project',
+            projectOverrides: [
+                'title' => 'Adult Rated Project',
+                'age_rating' => '18+',
+            ],
+        );
+        $target = $project->refresh()->latestPublicRelease->publicExternalTargets->first();
+        $signedUrl = URL::temporarySignedRoute(
+            'redirect.out',
+            now()->addMinutes(10),
+            ['slug' => $project->slug, 'target' => $target->id],
+        );
+
+        $this->get("/projects/{$project->slug}")->assertNotFound();
+        $this->get("/go/{$project->slug}")->assertNotFound();
+        $this->get($signedUrl)->assertNotFound();
+
+        $this->actingAs($junior)->get("/projects/{$project->slug}")->assertNotFound();
+        $this->actingAs($junior)->get("/go/{$project->slug}")->assertNotFound();
+        $this->actingAs($junior)->get($signedUrl)->assertNotFound();
+
+        $this->actingAs($adult)
+            ->get("/projects/{$project->slug}")
+            ->assertOk()
+            ->assertSee('Adult Rated Project');
+        $this->actingAs($adult)->get("/go/{$project->slug}")->assertOk();
+        $this->actingAs($adult)
+            ->get($signedUrl)
+            ->assertRedirect('https://modrinth.com/plugin/example');
     }
 
     public function test_project_page_exposes_reviewed_external_destination(): void
@@ -502,21 +665,21 @@ class DiscoveryPageTest extends TestCase
         return $project;
     }
 
-    private function member(): User
+    private function member(string $email = 'member@safedrop.test'): User
     {
         return User::query()->create([
             'name' => 'Member',
-            'email' => 'member@safedrop.test',
+            'email' => $email,
             'password' => 'safe-password',
         ]);
     }
 
-    private function creator(): User
+    private function creator(string $email = 'creator@safedrop.test', string $name = 'Blocksmith Studio'): User
     {
         return User::query()->firstOrCreate(
-            ['email' => 'creator@safedrop.test'],
+            ['email' => $email],
             [
-                'name' => 'Blocksmith Studio',
+                'name' => $name,
                 'password' => 'safe-password',
             ],
         )->forceFill([

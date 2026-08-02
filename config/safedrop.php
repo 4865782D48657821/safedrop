@@ -77,6 +77,11 @@ return [
         'under_13',
     ],
 
+    'junior_feed_age_ratings' => [
+        '12+',
+        'under_13',
+    ],
+
     'moderation_actions' => [
         'approve',
         'needs_review',
