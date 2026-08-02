@@ -9,6 +9,7 @@ use App\Models\ModerationCase;
 use App\Models\Project;
 use App\Models\Release;
 use App\Models\RightsCase;
+use App\Services\MemberNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Illuminate\View\View;
 
 class ModerationController extends Controller
 {
+    public function __construct(private MemberNotificationService $notifications) {}
+
     public function index(Request $request): View
     {
         abort_unless($request->user()?->canModerateContent(), 403);
@@ -79,6 +82,10 @@ class ModerationController extends Controller
                     'after' => $this->statusSnapshot($subject->fresh()),
                 ],
             ]);
+
+            if ($data['action'] === 'approve') {
+                $this->notifyApprovedSubject($subject->fresh());
+            }
         });
 
         return redirect()->route('moderation.index');
@@ -194,5 +201,41 @@ class ModerationController extends Controller
             ],
             default => [],
         };
+    }
+
+    private function notifyApprovedSubject(?object $subject): void
+    {
+        match (true) {
+            $subject instanceof Project => $this->notifications->notifyFollowersForProject($subject),
+            $subject instanceof Release => $this->notifications->notifyFollowersForRelease($subject),
+            $subject instanceof ExternalTarget => $this->notifyApprovedExternalTarget($subject),
+            default => null,
+        };
+    }
+
+    private function notifyApprovedExternalTarget(ExternalTarget $target): void
+    {
+        $target->loadMissing('release.project');
+
+        $release = $target->release;
+        $project = $release?->project;
+
+        if (! $release instanceof Release || ! $project instanceof Project) {
+            return;
+        }
+
+        $projectWasAlreadyVisible = $project->releases()
+            ->whereKeyNot($release->id)
+            ->publiclyExposable()
+            ->whereHas('publicExternalTargets')
+            ->exists();
+
+        if ($projectWasAlreadyVisible) {
+            $this->notifications->notifyFollowersForRelease($release);
+
+            return;
+        }
+
+        $this->notifications->notifyFollowersForProject($project);
     }
 }

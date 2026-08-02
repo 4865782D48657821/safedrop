@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\MemberNotification;
 use App\Models\ModerationCase;
 use App\Models\Project;
 use App\Models\User;
@@ -37,6 +38,21 @@ class LocalDemoSeederTest extends TestCase
         ]);
         $this->assertGreaterThanOrEqual(1, Project::query()->publiclyVisible()->count());
         $this->assertGreaterThanOrEqual(1, ModerationCase::query()->where('status', 'open')->count());
+        $this->assertDatabaseHas('creator_notification_preferences', [
+            'notify_new_projects' => true,
+            'notify_new_releases' => true,
+            'notify_livestreams' => true,
+        ]);
+        $minecraftProject = Project::query()->where('slug', 'skyforge-build-tools')->firstOrFail();
+        $juniorCreator = User::query()->where('email', 'creator@safedrop.test')->firstOrFail();
+        $this->assertDatabaseHas('member_notifications', [
+            'event_type' => 'new_project',
+            'dedupe_key' => "project:{$minecraftProject->id}",
+        ]);
+        $this->assertDatabaseHas('member_notifications', [
+            'event_type' => 'live_stream',
+            'dedupe_key' => "live:{$juniorCreator->id}:demo-live-1",
+        ]);
 
         $this->actingAs(User::query()->where('email', 'moderator@safedrop.test')->firstOrFail())
             ->get(route('moderation.index'))
@@ -53,6 +69,7 @@ class LocalDemoSeederTest extends TestCase
             'users' => User::query()->count(),
             'projects' => Project::query()->count(),
             'open_cases' => ModerationCase::query()->where('status', 'open')->count(),
+            'notifications' => MemberNotification::query()->count(),
         ];
 
         $this->seed(DatabaseSeeder::class);
@@ -60,6 +77,7 @@ class LocalDemoSeederTest extends TestCase
         $this->assertSame($firstCounts['users'], User::query()->count());
         $this->assertSame($firstCounts['projects'], Project::query()->count());
         $this->assertSame($firstCounts['open_cases'], ModerationCase::query()->where('status', 'open')->count());
+        $this->assertSame($firstCounts['notifications'], MemberNotification::query()->count());
     }
 
     public function test_database_seeder_does_not_create_demo_data_in_production_environment(): void

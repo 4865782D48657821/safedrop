@@ -31,6 +31,27 @@
                 <article class="card">
                     <h3>{{ $creator->name }}</h3>
                     <p>{{ $creator->public_projects_count }} public {{ $creator->public_projects_count === 1 ? 'project' : 'projects' }}</p>
+                    @php($preference = $notificationPreferences->get($creator->id))
+                    <form method="post" action="{{ route('creator-notification-preferences.update', $creator->id) }}">
+                        @csrf
+                        @method('put')
+                        <input type="hidden" name="notify_new_projects" value="0">
+                        <input type="hidden" name="notify_new_releases" value="0">
+                        <input type="hidden" name="notify_livestreams" value="0">
+                        <label>
+                            <input type="checkbox" name="notify_new_projects" value="1" @checked($preference?->notify_new_projects ?? true)>
+                            New projects
+                        </label>
+                        <label>
+                            <input type="checkbox" name="notify_new_releases" value="1" @checked($preference?->notify_new_releases ?? true)>
+                            New releases
+                        </label>
+                        <label>
+                            <input type="checkbox" name="notify_livestreams" value="1" @checked($preference?->notify_livestreams ?? true)>
+                            Livestreams
+                        </label>
+                        <button class="button button-secondary" type="submit">Save notification preferences</button>
+                    </form>
                     <form method="post" action="{{ route('creator-follows.destroy', $creator->id) }}">
                         @csrf
                         @method('delete')

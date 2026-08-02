@@ -9,6 +9,13 @@ class AccountController extends Controller
 {
     public function __invoke(Request $request): View
     {
+        $followedCreators = $request->user()
+            ->followedCreators()
+            ->whereHas('projects', fn ($query) => $query->publiclyVisible())
+            ->withCount(['projects as public_projects_count' => fn ($query) => $query->publiclyVisible()])
+            ->latest('creator_follows.created_at')
+            ->get(['users.id', 'users.name']);
+
         return view('account.show', [
             'user' => $request->user(),
             'savedProjects' => $request->user()
@@ -28,12 +35,12 @@ class AccountController extends Controller
                 ->withPivot('id', 'created_at')
                 ->latest('saved_projects.created_at')
                 ->get(),
-            'followedCreators' => $request->user()
-                ->followedCreators()
-                ->whereHas('projects', fn ($query) => $query->publiclyVisible())
-                ->withCount(['projects as public_projects_count' => fn ($query) => $query->publiclyVisible()])
-                ->latest('creator_follows.created_at')
-                ->get(['users.id', 'users.name']),
+            'followedCreators' => $followedCreators,
+            'notificationPreferences' => $request->user()
+                ->creatorNotificationPreferences()
+                ->whereIn('creator_id', $followedCreators->pluck('id'))
+                ->get()
+                ->keyBy('creator_id'),
             'unavailableFollowedCreators' => $request->user()
                 ->followedCreators()
                 ->whereDoesntHave('projects', fn ($query) => $query->publiclyVisible())

@@ -14,6 +14,7 @@ use App\Models\ProjectRating;
 use App\Models\Release;
 use App\Models\RightsCase;
 use App\Models\User;
+use App\Services\MemberNotificationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -187,6 +188,22 @@ class LocalDemoSeeder extends Seeder
             $juniorCreator->id,
             $adultCreator->id,
         ]);
+        $member->creatorNotificationPreferences()->updateOrCreate(
+            ['creator_id' => $juniorCreator->id],
+            [
+                'notify_new_projects' => true,
+                'notify_new_releases' => true,
+                'notify_livestreams' => true,
+            ],
+        );
+        $member->creatorNotificationPreferences()->updateOrCreate(
+            ['creator_id' => $adultCreator->id],
+            [
+                'notify_new_projects' => true,
+                'notify_new_releases' => false,
+                'notify_livestreams' => true,
+            ],
+        );
         $member->projectRatings()->updateOrCreate(
             ['project_id' => $minecraftProject->id],
             ['signal' => ProjectRating::HELPFUL],
@@ -195,6 +212,11 @@ class LocalDemoSeeder extends Seeder
             ['project_id' => $robloxProject->id],
             ['signal' => ProjectInterestFeedback::NOT_INTERESTED],
         );
+
+        $notifications = app(MemberNotificationService::class);
+        $notifications->notifyFollowersForProject($minecraftProject);
+        $notifications->notifyFollowersForRelease($minecraftRelease);
+        $notifications->notifyFollowersForLiveSession($juniorCreator, 'demo-live-1', 'Testing a protected build zone live.');
     }
 
     private function user(

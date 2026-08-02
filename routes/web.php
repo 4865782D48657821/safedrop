@@ -6,6 +6,8 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CreatorDashboardController;
 use App\Http\Controllers\CreatorFollowController;
 use App\Http\Controllers\ModerationController;
+use App\Http\Controllers\NotificationCenterController;
+use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ProjectInterestFeedbackController;
 use App\Http\Controllers\ProjectRatingController;
 use App\Http\Controllers\ProjectReportController;
@@ -154,6 +156,9 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/account', AccountController::class)->name('account.show');
+    Route::get('/notifications', [NotificationCenterController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationCenterController::class, 'markRead'])->name('notifications.read');
+    Route::put('/creators/{creator}/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('creator-notification-preferences.update');
     Route::get('/creator', CreatorDashboardController::class)->name('creator.dashboard');
     Route::get('/moderation', [ModerationController::class, 'index'])->name('moderation.index');
     Route::post('/moderation/cases/{case}/decisions', [ModerationController::class, 'decide'])->name('moderation.decide');

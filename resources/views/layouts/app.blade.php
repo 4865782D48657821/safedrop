@@ -244,6 +244,7 @@
             <a href="{{ route('home') }}#projects">Projects</a>
             <a href="{{ route('rights.create') }}">Rights</a>
             @auth
+                <a href="{{ route('notifications.index') }}">Notifications</a>
                 <a href="{{ route('account.show') }}">Account</a>
                 @if (auth()->user()->canPublishProjects())
                     <a href="{{ route('creator.dashboard') }}">Creator</a>

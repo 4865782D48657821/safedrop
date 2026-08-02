@@ -68,6 +68,16 @@ class User extends Authenticatable
         return $this->hasMany(ProjectInterestFeedback::class);
     }
 
+    public function creatorNotificationPreferences(): HasMany
+    {
+        return $this->hasMany(CreatorNotificationPreference::class);
+    }
+
+    public function memberNotifications(): HasMany
+    {
+        return $this->hasMany(MemberNotification::class);
+    }
+
     public function canPublishProjects(): bool
     {
         return $this->isCreator();
