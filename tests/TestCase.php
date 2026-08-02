@@ -20,7 +20,10 @@ abstract class TestCase extends BaseTestCase
     {
         app()->instance(
             UrlReviewService::class,
-            new UrlReviewService(fn (string $host): array => $records[$host] ?? ['93.184.216.34']),
+            new UrlReviewService(
+                fn (string $host): array => $records[$host] ?? ['93.184.216.34'],
+                fn (): ?string => null,
+            ),
         );
     }
 }

@@ -92,7 +92,7 @@ class ProjectDataModelTest extends TestCase
         ]);
 
         $this->assertSame('https://example.com/project', $httpsTarget->safeDestinationUrl());
-        $this->assertSame('HTTPS://example.com/project', $uppercaseSchemeTarget->safeDestinationUrl());
+        $this->assertSame('https://example.com/project', $uppercaseSchemeTarget->safeDestinationUrl());
         $this->assertNull($unsafeTarget->safeDestinationUrl());
         $this->assertNull($privateTarget->safeDestinationUrl());
     }
@@ -134,6 +134,33 @@ class ProjectDataModelTest extends TestCase
         ]);
 
         $this->assertNull($target->publicDestinationUrl());
+    }
+
+    public function test_external_target_public_destination_uses_reviewed_same_domain_redirect_destination(): void
+    {
+        app()->instance(
+            UrlReviewService::class,
+            new UrlReviewService(
+                fn (): array => ['93.184.216.34'],
+                fn (string $url): ?string => $url === 'https://example.com/project' ? '/projects/current' : null,
+            ),
+        );
+
+        try {
+            $target = new ExternalTarget([
+                'original_url' => 'https://example.com/project',
+                'normalized_url' => 'https://example.com/project',
+                'target_domain' => 'example.com',
+                'domain_status' => DomainStatus::Known,
+                'target_type' => 'project_page',
+                'reachability_status' => 'reachable',
+                'trust_status' => 'approved',
+            ]);
+
+            $this->assertSame('https://example.com/projects/current', $target->publicDestinationUrl());
+        } finally {
+            $this->fakeUrlReviewDns();
+        }
     }
 
     public function test_external_target_public_destination_requires_current_dns_reachability(): void

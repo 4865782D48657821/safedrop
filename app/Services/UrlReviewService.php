@@ -39,7 +39,10 @@ class UrlReviewService
         'ff00::/8',
     ];
 
-    public function __construct(private ?Closure $dnsResolver = null) {}
+    public function __construct(
+        private ?Closure $dnsResolver = null,
+        private ?Closure $redirectResolver = null,
+    ) {}
 
     public function review(string $url, string $targetType = 'project_page'): UrlReviewResult
     {
@@ -50,54 +53,64 @@ class UrlReviewService
             return $this->blocked($originalUrl, $targetType, ['target_type_not_in_mvp']);
         }
 
-        $parts = parse_url($originalUrl);
+        $current = $this->inspectUrl($originalUrl);
 
-        if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) {
-            return $this->blocked($originalUrl, $targetType, ['malformed_url']);
+        if ($current['blocked']) {
+            return $this->blocked($originalUrl, $targetType, $current['signals'], $current['host']);
         }
 
-        $scheme = strtolower($parts['scheme']);
-        $host = strtolower(rtrim($parts['host'], '.'));
-        $hostForIpChecks = $this->hostForIpChecks($host);
+        $signals = array_merge($signals, $current['signals']);
+        $redirectChain = [$current['normalizedUrl']];
+        $initialHost = $current['host'];
+        $maxRedirects = max(0, (int) config('safedrop.url_review.max_redirects', 5));
+        $redirectChainTooLong = false;
+        $redirectChainComplete = false;
 
-        if (! in_array($scheme, config('safedrop.url_review.allowed_schemes'), true)) {
-            return $this->blocked($originalUrl, $targetType, ['unsupported_scheme']);
+        for ($hop = 0; $hop < $maxRedirects; $hop++) {
+            $redirectUrl = $this->nextRedirectUrl($current['normalizedUrl']);
+
+            if ($redirectUrl === null) {
+                $redirectChainComplete = true;
+                break;
+            }
+
+            $next = $this->inspectUrl($this->resolveRedirectLocation($current['normalizedUrl'], $redirectUrl));
+
+            if ($next['blocked']) {
+                return $this->blocked(
+                    $originalUrl,
+                    $targetType,
+                    array_values(array_unique(array_merge($signals, ['redirect_to_blocked_destination'], $next['signals']))),
+                    $next['host'],
+                );
+            }
+
+            $signals = array_merge($signals, $next['signals']);
+            $redirectChain[] = $next['normalizedUrl'];
+            $current = $next;
         }
 
-        if (isset($parts['user']) || isset($parts['pass'])) {
-            return $this->blocked($originalUrl, $targetType, ['userinfo_not_allowed'], $host);
+        if (! $redirectChainComplete && $this->nextRedirectUrl($current['normalizedUrl']) !== null) {
+            $redirectChainTooLong = true;
         }
 
-        if ($this->isBlockedHost($hostForIpChecks)) {
-            return $this->blocked($originalUrl, $targetType, ['blocked_host'], $host);
+        if ($redirectChainTooLong) {
+            $signals[] = 'redirect_chain_too_long';
         }
 
-        if ($scheme !== 'https') {
-            $signals[] = 'non_https';
+        if ($current['host'] !== $initialHost) {
+            $signals[] = 'redirect_domain_changed';
         }
 
-        if ($this->isKnownShortener($host)) {
-            $signals[] = 'known_shortener';
-        }
-
-        $normalizedUrl = $this->normalize($parts, $scheme, $host);
-        $dnsResult = $this->resolvePublicHost($hostForIpChecks);
-
-        if ($dnsResult['blocked']) {
-            return $this->blocked($originalUrl, $targetType, ['dns_resolves_to_private_or_reserved_address'], $host);
-        }
-
-        if (! $dnsResult['reachable']) {
-            $signals[] = 'dns_unresolved';
-        }
+        $signals = array_values(array_unique($signals));
 
         return new UrlReviewResult(
             originalUrl: $originalUrl,
-            normalizedUrl: $normalizedUrl,
-            redirectChain: [$normalizedUrl],
-            targetDomain: $host,
+            normalizedUrl: $current['normalizedUrl'],
+            redirectChain: $redirectChain,
+            targetDomain: $current['host'],
             targetType: $targetType,
-            reachabilityStatus: $dnsResult['reachable'] ? 'reachable' : 'unreachable',
+            reachabilityStatus: $current['reachable'] ? 'reachable' : 'unreachable',
             trustStatus: $signals === [] ? 'pending' : 'needs_review',
             signals: $signals,
         );
@@ -124,6 +137,124 @@ class UrlReviewService
         $port = isset($parts['port']) ? ":{$parts['port']}" : '';
 
         return "{$scheme}://{$host}{$port}{$path}{$query}";
+    }
+
+    /**
+     * @return array{blocked: bool, normalizedUrl: ?string, host: ?string, reachable: bool, signals: list<string>}
+     */
+    private function inspectUrl(string $url): array
+    {
+        $parts = parse_url($url);
+
+        if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) {
+            return $this->inspectionBlocked(['malformed_url']);
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $host = strtolower(rtrim($parts['host'], '.'));
+        $hostForIpChecks = $this->hostForIpChecks($host);
+
+        if (! in_array($scheme, config('safedrop.url_review.allowed_schemes'), true)) {
+            return $this->inspectionBlocked(['unsupported_scheme'], $host);
+        }
+
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            return $this->inspectionBlocked(['userinfo_not_allowed'], $host);
+        }
+
+        if ($this->isBlockedHost($hostForIpChecks)) {
+            return $this->inspectionBlocked(['blocked_host'], $host);
+        }
+
+        $signals = [];
+
+        if ($scheme !== 'https') {
+            $signals[] = 'non_https';
+        }
+
+        if ($this->isKnownShortener($host)) {
+            $signals[] = 'known_shortener';
+        }
+
+        $dnsResult = $this->resolvePublicHost($hostForIpChecks);
+
+        if ($dnsResult['blocked']) {
+            return $this->inspectionBlocked(['dns_resolves_to_private_or_reserved_address'], $host);
+        }
+
+        if (! $dnsResult['reachable']) {
+            $signals[] = 'dns_unresolved';
+        }
+
+        return [
+            'blocked' => false,
+            'normalizedUrl' => $this->normalize($parts, $scheme, $host),
+            'host' => $host,
+            'reachable' => $dnsResult['reachable'],
+            'signals' => $signals,
+        ];
+    }
+
+    /**
+     * @return array{blocked: true, normalizedUrl: null, host: ?string, reachable: false, signals: list<string>}
+     */
+    private function inspectionBlocked(array $signals, ?string $host = null): array
+    {
+        return [
+            'blocked' => true,
+            'normalizedUrl' => null,
+            'host' => $host,
+            'reachable' => false,
+            'signals' => $signals,
+        ];
+    }
+
+    private function nextRedirectUrl(string $url): ?string
+    {
+        try {
+            $redirectUrl = $this->redirectResolver instanceof Closure
+                ? ($this->redirectResolver)($url)
+                : ($this->shouldResolveRedirects() ? $this->defaultRedirectResolve($url) : null);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_string($redirectUrl) && trim($redirectUrl) !== '' ? trim($redirectUrl) : null;
+    }
+
+    private function shouldResolveRedirects(): bool
+    {
+        return (bool) config('safedrop.url_review.resolve_redirects', true);
+    }
+
+    private function resolveRedirectLocation(string $currentUrl, string $location): string
+    {
+        if (parse_url($location, PHP_URL_SCHEME) !== null) {
+            return $location;
+        }
+
+        $currentParts = parse_url($currentUrl);
+
+        if ($currentParts === false || empty($currentParts['scheme']) || empty($currentParts['host'])) {
+            return $location;
+        }
+
+        $scheme = strtolower($currentParts['scheme']);
+        $host = strtolower(rtrim($currentParts['host'], '.'));
+        $port = isset($currentParts['port']) ? ":{$currentParts['port']}" : '';
+
+        if (str_starts_with($location, '//')) {
+            return "{$scheme}:{$location}";
+        }
+
+        if (str_starts_with($location, '/')) {
+            return "{$scheme}://{$host}{$port}{$location}";
+        }
+
+        $basePath = $currentParts['path'] ?? '/';
+        $baseDir = str_ends_with($basePath, '/') ? $basePath : dirname($basePath).'/';
+
+        return "{$scheme}://{$host}{$port}{$baseDir}{$location}";
     }
 
     private function hostForIpChecks(string $host): string
@@ -203,7 +334,7 @@ class UrlReviewService
     }
 
     /**
-     * @return array{reachable: bool, blocked: bool}
+     * @return array{reachable: bool, blocked: bool, addresses: list<string>}
      */
     private function resolvePublicHost(string $host): array
     {
@@ -211,6 +342,7 @@ class UrlReviewService
             return [
                 'reachable' => true,
                 'blocked' => $this->isBlockedIpAddress($host),
+                'addresses' => [$host],
             ];
         }
 
@@ -220,6 +352,7 @@ class UrlReviewService
             return [
                 'reachable' => false,
                 'blocked' => false,
+                'addresses' => [],
             ];
         }
 
@@ -228,6 +361,7 @@ class UrlReviewService
                 return [
                     'reachable' => false,
                     'blocked' => true,
+                    'addresses' => $addresses,
                 ];
             }
         }
@@ -235,6 +369,7 @@ class UrlReviewService
         return [
             'reachable' => true,
             'blocked' => false,
+            'addresses' => $addresses,
         ];
     }
 
@@ -282,6 +417,119 @@ class UrlReviewService
         }
 
         return $addresses;
+    }
+
+    private function defaultRedirectResolve(string $url): ?string
+    {
+        $parts = parse_url($url);
+
+        if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        $host = strtolower(rtrim($parts['host'], '.'));
+        $port = (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
+
+        if (! in_array($scheme, ['http', 'https'], true) || $port < 1 || $port > 65535) {
+            return null;
+        }
+
+        $dnsResult = $this->resolvePublicHost($this->hostForIpChecks($host));
+
+        if ($dnsResult['blocked'] || $dnsResult['addresses'] === []) {
+            return null;
+        }
+
+        foreach ($dnsResult['addresses'] as $address) {
+            if ($this->isBlockedIpAddress($address)) {
+                return null;
+            }
+        }
+
+        $address = $dnsResult['addresses'][0];
+        $addressForSocket = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? "[{$address}]" : $address;
+        $transport = $scheme === 'https' ? 'ssl' : 'tcp';
+        $timeout = (float) config('safedrop.url_review.redirect_timeout_seconds', 3);
+        $contextOptions = [];
+
+        if ($scheme === 'https') {
+            $contextOptions['ssl'] = [
+                'peer_name' => $host,
+                'SNI_enabled' => true,
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ];
+        }
+
+        $socket = @stream_socket_client(
+            "{$transport}://{$addressForSocket}:{$port}",
+            $errorCode,
+            $errorMessage,
+            $timeout,
+            STREAM_CLIENT_CONNECT,
+            stream_context_create($contextOptions),
+        );
+
+        if ($socket === false) {
+            return null;
+        }
+
+        stream_set_timeout($socket, (int) ceil($timeout));
+
+        $path = $parts['path'] ?? '/';
+        $query = isset($parts['query']) ? "?{$parts['query']}" : '';
+        $hostHeader = $this->hostHeader($host, $scheme, $port);
+        fwrite($socket, "HEAD {$path}{$query} HTTP/1.1\r\n");
+        fwrite($socket, "Host: {$hostHeader}\r\n");
+        fwrite($socket, "User-Agent: SafedropUrlReview/1.0\r\n");
+        fwrite($socket, "Accept: */*\r\n");
+        fwrite($socket, "Connection: close\r\n\r\n");
+
+        $headers = '';
+
+        while (! feof($socket) && strlen($headers) < 16384) {
+            $headers .= (string) fgets($socket, 4096);
+
+            if (str_contains($headers, "\r\n\r\n")) {
+                break;
+            }
+        }
+
+        fclose($socket);
+
+        $lines = preg_split('/\r\n|\n|\r/', $headers) ?: [];
+        $statusLine = $lines[0] ?? '';
+
+        if (preg_match('/^HTTP\/\d(?:\.\d)?\s+3\d\d\b/i', $statusLine) !== 1) {
+            return null;
+        }
+
+        foreach (array_slice($lines, 1) as $line) {
+            if (! is_string($line) || ! str_contains($line, ':')) {
+                continue;
+            }
+
+            [$name, $value] = explode(':', $line, 2);
+
+            if (strtolower(trim($name)) !== 'location') {
+                continue;
+            }
+
+            $value = trim($value);
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
+    }
+
+    private function hostHeader(string $host, string $scheme, int $port): string
+    {
+        $defaultPort = $scheme === 'https' ? 443 : 80;
+        $formattedHost = str_contains($host, ':') && ! str_starts_with($host, '[') ? "[{$host}]" : $host;
+
+        return $port === $defaultPort ? $formattedHost : "{$formattedHost}:{$port}";
     }
 
     private function isBlockedIpAddress(string $address): bool

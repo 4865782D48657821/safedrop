@@ -128,6 +128,92 @@ class UrlReviewServiceTest extends TestCase
         $this->assertSame(['known_shortener'], $review->signals);
     }
 
+    public function test_redirect_chain_is_resolved_and_final_url_becomes_review_target(): void
+    {
+        $review = $this->service(
+            [
+                'downloads.example' => ['93.184.216.34'],
+                'cdn.example' => ['93.184.216.35'],
+            ],
+            [
+                'https://downloads.example/project' => 'https://cdn.example/projects/current',
+            ],
+        )->review('https://downloads.example/project');
+
+        $this->assertSame('https://cdn.example/projects/current', $review->normalizedUrl);
+        $this->assertSame([
+            'https://downloads.example/project',
+            'https://cdn.example/projects/current',
+        ], $review->redirectChain);
+        $this->assertSame('cdn.example', $review->targetDomain);
+        $this->assertSame('needs_review', $review->trustStatus);
+        $this->assertSame(['redirect_domain_changed'], $review->signals);
+    }
+
+    public function test_relative_redirect_locations_are_resolved_against_current_url(): void
+    {
+        $review = $this->service(
+            ['example.com' => ['93.184.216.34']],
+            ['https://example.com/releases/latest' => '/downloads/current?from=latest'],
+        )->review('https://example.com/releases/latest');
+
+        $this->assertSame('https://example.com/downloads/current?from=latest', $review->normalizedUrl);
+        $this->assertSame([
+            'https://example.com/releases/latest',
+            'https://example.com/downloads/current?from=latest',
+        ], $review->redirectChain);
+        $this->assertSame('example.com', $review->targetDomain);
+        $this->assertSame('pending', $review->trustStatus);
+        $this->assertSame([], $review->signals);
+    }
+
+    public function test_redirects_to_private_or_reserved_destinations_are_blocked(): void
+    {
+        $review = $this->service(
+            ['example.com' => ['93.184.216.34']],
+            ['https://example.com/project' => 'https://127.0.0.1/admin'],
+        )->review('https://example.com/project');
+
+        $this->assertSame('blocked', $review->trustStatus);
+        $this->assertSame('127.0.0.1', $review->targetDomain);
+        $this->assertSame(['redirect_to_blocked_destination', 'blocked_host'], $review->signals);
+    }
+
+    public function test_redirect_chains_over_limit_require_manual_review(): void
+    {
+        config(['safedrop.url_review.max_redirects' => 1]);
+
+        $review = $this->service(
+            ['example.com' => ['93.184.216.34']],
+            [
+                'https://example.com/a' => 'https://example.com/b',
+                'https://example.com/b' => 'https://example.com/c',
+            ],
+        )->review('https://example.com/a');
+
+        $this->assertSame('https://example.com/b', $review->normalizedUrl);
+        $this->assertSame('needs_review', $review->trustStatus);
+        $this->assertSame(['redirect_chain_too_long'], $review->signals);
+    }
+
+    public function test_default_redirect_resolution_rechecks_dns_before_connecting(): void
+    {
+        config(['safedrop.url_review.resolve_redirects' => true]);
+
+        $calls = 0;
+        $service = new UrlReviewService(function () use (&$calls): array {
+            $calls++;
+
+            return $calls === 1 ? ['93.184.216.34'] : ['127.0.0.1'];
+        });
+
+        $review = $service->review('https://example.com/project');
+
+        $this->assertSame('https://example.com/project', $review->normalizedUrl);
+        $this->assertSame('pending', $review->trustStatus);
+        $this->assertSame(2, $calls);
+    }
+
     public function test_non_mvp_target_types_are_blocked(): void
     {
         $review = $this->service()->review('https://example.com/file.zip', 'file_download');
@@ -170,8 +256,13 @@ class UrlReviewServiceTest extends TestCase
         ExternalTarget::makeFromReview($release, $review);
     }
 
-    private function service(array $dns = ['example.com' => ['93.184.216.34'], 'modrinth.com' => ['151.101.2.132']]): UrlReviewService
-    {
-        return new UrlReviewService(fn (string $host): array => $dns[$host] ?? []);
+    private function service(
+        array $dns = ['example.com' => ['93.184.216.34'], 'modrinth.com' => ['151.101.2.132']],
+        array $redirects = [],
+    ): UrlReviewService {
+        return new UrlReviewService(
+            fn (string $host): array => $dns[$host] ?? [],
+            fn (string $url): ?string => $redirects[$url] ?? null,
+        );
     }
 }

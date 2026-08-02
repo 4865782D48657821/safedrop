@@ -19,5 +19,6 @@
         <server name="CACHE_STORE" value="array"/>
         <server name="QUEUE_CONNECTION" value="sync"/>
         <server name="SESSION_DRIVER" value="array"/>
+        <server name="SAFEDROP_URL_REVIEW_RESOLVE_REDIRECTS" value="false"/>
     </php>
 </phpunit>

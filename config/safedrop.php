@@ -143,6 +143,9 @@ return [
 
     'url_review' => [
         'allowed_schemes' => ['http', 'https'],
+        'resolve_redirects' => env('SAFEDROP_URL_REVIEW_RESOLVE_REDIRECTS', true),
+        'max_redirects' => 5,
+        'redirect_timeout_seconds' => 3,
         'blocked_hosts' => [
             'localhost',
         ],

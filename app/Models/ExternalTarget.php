@@ -47,7 +47,7 @@ class ExternalTarget extends Model
             return null;
         }
 
-        return $url;
+        return $review->normalizedUrl;
     }
 
     public function publicDestinationUrl(): ?string
@@ -76,7 +76,7 @@ class ExternalTarget extends Model
             return null;
         }
 
-        return $url;
+        return $review->normalizedUrl;
     }
 
     public function isPubliclyAccessible(): bool
